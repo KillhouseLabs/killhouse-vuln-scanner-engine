@@ -1,0 +1,97 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1770804978969,
+  "projectRoot": "/Users/edith/Projects/vulner",
+  "techStack": {
+    "languages": [
+      {
+        "name": "Python",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "requirements.txt"
+        ]
+      }
+    ],
+    "frameworks": [],
+    "packageManager": "pip",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": "camelCase/PascalCase",
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "scripts",
+      "src",
+      "tests"
+    ],
+    "gitBranches": null
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 1,
+      "lastAccessed": 1770804978959,
+      "keyFiles": [
+        "test_demo.py"
+      ]
+    },
+    "src": {
+      "path": "src",
+      "purpose": "Source code",
+      "fileCount": 3,
+      "lastAccessed": 1770804978959,
+      "keyFiles": [
+        "__init__.py",
+        "config.py",
+        "main.py"
+      ]
+    },
+    "tests": {
+      "path": "tests",
+      "purpose": "Test files",
+      "fileCount": 2,
+      "lastAccessed": 1770804978959,
+      "keyFiles": [
+        "test_container.py",
+        "test_worktree.py"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "requirements.txt",
+      "accessCount": 5,
+      "lastAccessed": 1770805112824,
+      "type": "file"
+    },
+    {
+      "path": "src/worktree/registry.py",
+      "accessCount": 3,
+      "lastAccessed": 1770808053375,
+      "type": "file"
+    },
+    {
+      "path": "src/config.py",
+      "accessCount": 2,
+      "lastAccessed": 1770808030048,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

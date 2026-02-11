@@ -1,0 +1,39 @@
+{
+  "research_stage": "Stage 5: Exploit Framework",
+  "completion_date": "2026-02-11T18:08:51.756137",
+  "statistics": {
+    "frameworks_analyzed": 5,
+    "execution_patterns": 7,
+    "llm_workflows": 4,
+    "validation_methods": 8,
+    "compliance_categories": 5,
+    "total_compliance_requirements": 20,
+    "mandatory_requirements": 11,
+    "framework_components": 7,
+    "workflow_phases": 7,
+    "safety_guardrails": 5,
+    "design_principles": 5
+  },
+  "key_findings": [
+    "All frameworks require explicit authorization",
+    "71.4% of execution patterns are low-risk",
+    "LLM-generated exploits achieve 75-85% success rate",
+    "50% of validation methods provide 95%+ confidence",
+    "55% of compliance requirements are legally mandatory"
+  ],
+  "deliverables": [
+    "SafeExploit Framework architecture with 7 core components",
+    "7-phase workflow with quality gates",
+    "5 safety guardrails for real-time protection",
+    "Comprehensive compliance checklist",
+    "Prompt engineering templates for safe exploit generation"
+  ],
+  "limitations": [
+    "LLM-generated exploits require human validation",
+    "Accuracy varies based on vulnerability complexity",
+    "Legal requirements vary by jurisdiction",
+    "Resource-intensive sandbox requirements"
+  ],
+  "report_location": "/Users/edith/Projects/vulner/.omc/research/stage5-exploit-framework.md",
+  "architecture_location": "/Users/edith/Projects/vulner/.omc/scientist/reports/framework_architecture.json"
+}

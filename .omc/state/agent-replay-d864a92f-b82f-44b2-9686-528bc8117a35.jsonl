@@ -1,0 +1,13 @@
+{"t":0,"agent":"system","event":"keyword_detected","keyword":"research"}
+{"t":0,"agent":"system","event":"skill_invoked","skill_name":"oh-my-claudecode:research"}
+{"t":0,"agent":"a5bdafd","agent_type":"scientist","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a5bdafd","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"a66420a","agent_type":"scientist","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a5c71af","agent_type":"scientist","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a49beb1","agent_type":"scientist","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"aeaf6f3","agent_type":"scientist","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a49beb1","agent_type":"scientist","event":"agent_stop","success":true,"duration_ms":426536}
+{"t":0,"agent":"a5c71af","agent_type":"scientist","event":"agent_stop","success":true,"duration_ms":432639}
+{"t":0,"agent":"aeaf6f3","agent_type":"scientist","event":"agent_stop","success":true,"duration_ms":517131}
+{"t":0,"agent":"a66420a","agent_type":"unknown","event":"agent_stop","success":true}
+{"t":0,"agent":"ae1a314","agent_type":"unknown","event":"agent_stop","success":true}
