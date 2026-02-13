@@ -118,7 +118,7 @@ class ContainerOrchestrator:
 
         # Add resource limits
         cmd.extend(["--cpus", str(policy_args["cpus"])])
-        cmd.extend(["--memory", policy_args["memory_limit"]])
+        cmd.extend(["--memory", policy_args["mem_limit"]])
         cmd.extend(["--pids-limit", str(policy_args["pids_limit"])])
 
         # Filesystem
