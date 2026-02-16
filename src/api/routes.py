@@ -1,0 +1,126 @@
+"""API routes for scanner engine"""
+
+import logging
+from uuid import uuid4
+from datetime import datetime
+from typing import Dict, Any
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+
+from .schemas import (
+    ScanRequest,
+    ScanResponse,
+    ScanStatusResponse,
+    ScanStatus,
+)
+from src.scanner.pipeline import ScanPipeline
+
+logger = logging.getLogger(__name__)
+
+# In-memory storage for scan status
+# Structure: {scan_id: {status, analysis_id, started_at, completed_at, error, request}}
+scan_store: Dict[str, Dict[str, Any]] = {}
+
+router = APIRouter()
+
+# Pipeline instance
+_pipeline = ScanPipeline()
+
+
+async def _run_scan(scan_id: str, request: ScanRequest):
+    """Execute scan pipeline as a background task"""
+    await _pipeline.run(
+        scan_id=scan_id,
+        analysis_id=request.analysis_id,
+        repo_url=request.repo_url,
+        branch=request.branch,
+        target_url=request.target_url,
+        callback_url=request.callback_url,
+        local_path=request.local_path,
+        scan_store=scan_store,
+    )
+
+
+@router.post("/api/scans", response_model=ScanResponse)
+async def create_scan(
+    request: ScanRequest,
+    background_tasks: BackgroundTasks,
+):
+    """
+    Initiate a new vulnerability scan
+
+    Args:
+        request: Scan configuration including analysis_id, repo_url, target_url
+        background_tasks: FastAPI background task manager
+
+    Returns:
+        ScanResponse with scan_id and ACCEPTED status
+    """
+    scan_id = str(uuid4())[:8]
+
+    logger.info(
+        f"Creating scan {scan_id} for analysis {request.analysis_id}"
+    )
+
+    # Store scan info
+    scan_store[scan_id] = {
+        "scan_id": scan_id,
+        "analysis_id": request.analysis_id,
+        "status": ScanStatus.ACCEPTED,
+        "started_at": datetime.now(),
+        "completed_at": None,
+        "error": None,
+        "request": request,
+    }
+
+    # Add background task
+    background_tasks.add_task(_run_scan, scan_id, request)
+
+    return ScanResponse(
+        scan_id=scan_id,
+        status=ScanStatus.ACCEPTED,
+        message=f"Scan {scan_id} accepted and queued",
+    )
+
+
+@router.get("/api/scans/{scan_id}", response_model=ScanStatusResponse)
+async def get_scan_status(scan_id: str):
+    """
+    Get current status of a scan
+
+    Args:
+        scan_id: Unique scan identifier
+
+    Returns:
+        ScanStatusResponse with current scan status
+
+    Raises:
+        HTTPException: If scan_id not found
+    """
+    if scan_id not in scan_store:
+        logger.warning(f"Scan {scan_id} not found")
+        raise HTTPException(status_code=404, detail=f"Scan {scan_id} not found")
+
+    scan_data = scan_store[scan_id]
+
+    return ScanStatusResponse(
+        scan_id=scan_data["scan_id"],
+        analysis_id=scan_data["analysis_id"],
+        status=scan_data["status"],
+        started_at=scan_data["started_at"],
+        completed_at=scan_data["completed_at"],
+        error=scan_data["error"],
+    )
+
+
+@router.get("/health")
+async def health_check():
+    """
+    Health check endpoint
+
+    Returns:
+        Health status response
+    """
+    return {
+        "status": "ok",
+        "service": "killhouse-scanner-engine",
+    }
