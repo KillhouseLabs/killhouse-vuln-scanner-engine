@@ -34,6 +34,7 @@ ignore = [
     "UP007", # use X | Y instead of Optional[X] (Pydantic + 3.9 compat)
     "UP035", # typing.Dict deprecated (Pydantic + 3.9 compat)
     "UP042", # use StrEnum instead of str + Enum (requires 3.11+)
+    "UP045", # use X | None instead of Optional[X] (Pydantic compat)
 ]
 
 [tool.ruff.lint.isort]
