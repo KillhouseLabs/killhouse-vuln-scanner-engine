@@ -31,8 +31,8 @@ class ContainerOrchestrator:
                 [self.runtime, "--version"], capture_output=True, text=True, check=True
             )
             logger.info(f"Using {self.runtime}: {result.stdout.strip()}")
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            raise RuntimeError(f"{self.runtime} is not installed or not in PATH")
+        except (subprocess.CalledProcessError, FileNotFoundError) as err:
+            raise RuntimeError(f"{self.runtime} is not installed or not in PATH") from err
 
     def create_pod(self, pod_name: str, network_isolated: bool = True) -> str:
         """

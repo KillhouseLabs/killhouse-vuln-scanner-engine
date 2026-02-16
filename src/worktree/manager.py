@@ -72,7 +72,7 @@ class WorktreeManager:
 
                 cmd.extend([str(worktree_path), commit_ref])
 
-                result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+                subprocess.run(cmd, capture_output=True, text=True, check=True)
 
                 # Register worktree
                 worktree_info = {

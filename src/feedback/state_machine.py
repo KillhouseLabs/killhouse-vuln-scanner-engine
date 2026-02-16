@@ -139,7 +139,7 @@ class FeedbackLoopStateMachine:
 
         logger.info(f"Initialized FeedbackLoopStateMachine for scan {scan_id}")
 
-    def transition_to(self, new_state: State, reason: str, metadata: Dict = None):
+    def transition_to(self, new_state: State, reason: str, metadata: Dict | None = None):
         """
         Transition to a new state
 

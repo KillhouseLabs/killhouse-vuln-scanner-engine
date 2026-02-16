@@ -734,7 +734,7 @@ class VulnerPlatform:
         tech_stack: Dict,
         scan_id: str,
         url: str,
-        total_vulnerabilities_found: int = None,
+        total_vulnerabilities_found: int | None = None,
     ) -> tuple[List[Dict], Dict]:
         """
         Analyze vulnerabilities using AI

@@ -60,7 +60,7 @@ class TestPolicyEngine:
             target_url="https://example.com", user_id="test_user", authorization_token=token
         )
 
-        allowed, reason = engine.check_permission(ActionType.EXPLOIT, context)
+        allowed, _reason = engine.check_permission(ActionType.EXPLOIT, context)
 
         assert allowed is True
 
@@ -250,7 +250,7 @@ class TestFeedbackLoopPersistence:
     def test_persistence_initialization(self, tmp_path):
         """Test persistence layer initializes database"""
         db_path = tmp_path / "test_feedback.db"
-        persistence = FeedbackLoopPersistence(db_path=db_path)
+        _persistence = FeedbackLoopPersistence(db_path=db_path)
 
         assert db_path.exists()
 

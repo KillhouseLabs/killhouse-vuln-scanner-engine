@@ -87,17 +87,11 @@ class ResultAggregator:
         unique = []
         for f in findings:
             # Build a dedup key: same CWE in same file/line or same URL
-            if f.cwe:
-                if f.type == "sast":
-                    key = (f.cwe, f.file_path, f.line)
-                else:
-                    key = (f.cwe, f.url)
-            else:
-                # No CWE: use title + location
-                if f.type == "sast":
-                    key = (f.title, f.file_path, f.line)
-                else:
-                    key = (f.title, f.url)
+            key = (
+                ((f.cwe, f.file_path, f.line) if f.type == "sast" else (f.cwe, f.url))
+                if f.cwe
+                else ((f.title, f.file_path, f.line) if f.type == "sast" else (f.title, f.url))
+            )
 
             if key not in seen:
                 seen.add(key)
