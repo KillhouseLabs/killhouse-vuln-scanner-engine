@@ -2,13 +2,12 @@
 
 import asyncio
 import logging
-from typing import Dict, List, Set
 from dataclasses import dataclass
-from urllib.parse import urlparse
+from typing import Dict, List
 
 import httpx
-from Wappalyzer import Wappalyzer, WebPage
 from bs4 import BeautifulSoup
+from Wappalyzer import Wappalyzer, WebPage
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +15,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class TechStackInfo:
     """Information about detected technology"""
+
     name: str
     version: str = ""
     category: str = ""
@@ -31,9 +31,7 @@ class TechStackDetector:
         self.client = httpx.AsyncClient(
             timeout=30.0,
             follow_redirects=True,
-            headers={
-                "User-Agent": "Vulner-Scanner/1.0 (Security Research)"
-            }
+            headers={"User-Agent": "Vulner-Scanner/1.0 (Security Research)"},
         )
 
     async def detect(self, url: str) -> List[TechStackInfo]:
@@ -59,7 +57,7 @@ class TechStackDetector:
                 self._detect_from_headers(response),
                 self._detect_from_html(response.text),
                 self._detect_from_meta_tags(response.text),
-                return_exceptions=True
+                return_exceptions=True,
             )
 
             # Merge results
@@ -87,9 +85,7 @@ class TechStackDetector:
             return []
 
     async def _detect_with_wappalyzer(
-        self,
-        url: str,
-        response: httpx.Response
+        self, url: str, response: httpx.Response
     ) -> List[TechStackInfo]:
         """Detect using Wappalyzer library"""
         try:
@@ -99,11 +95,13 @@ class TechStackDetector:
             technologies = []
             for tech_name in detected:
                 # Wappalyzer returns set of tech names
-                technologies.append(TechStackInfo(
-                    name=tech_name,
-                    confidence=0.9,  # Wappalyzer is highly reliable
-                    detection_method="wappalyzer"
-                ))
+                technologies.append(
+                    TechStackInfo(
+                        name=tech_name,
+                        confidence=0.9,  # Wappalyzer is highly reliable
+                        detection_method="wappalyzer",
+                    )
+                )
 
             return technologies
 
@@ -111,10 +109,7 @@ class TechStackDetector:
             logger.debug(f"Wappalyzer detection failed: {e}")
             return []
 
-    async def _detect_from_headers(
-        self,
-        response: httpx.Response
-    ) -> List[TechStackInfo]:
+    async def _detect_from_headers(self, response: httpx.Response) -> List[TechStackInfo]:
         """Detect from HTTP response headers"""
         technologies = []
         headers = response.headers
@@ -123,54 +118,66 @@ class TechStackDetector:
         if "server" in headers:
             server = headers["server"].lower()
             if "nginx" in server:
-                technologies.append(TechStackInfo(
-                    name="Nginx",
-                    category="Web Server",
-                    confidence=1.0,
-                    detection_method="headers"
-                ))
+                technologies.append(
+                    TechStackInfo(
+                        name="Nginx",
+                        category="Web Server",
+                        confidence=1.0,
+                        detection_method="headers",
+                    )
+                )
             elif "apache" in server:
-                technologies.append(TechStackInfo(
-                    name="Apache",
-                    category="Web Server",
-                    confidence=1.0,
-                    detection_method="headers"
-                ))
+                technologies.append(
+                    TechStackInfo(
+                        name="Apache",
+                        category="Web Server",
+                        confidence=1.0,
+                        detection_method="headers",
+                    )
+                )
             elif "cloudflare" in server:
-                technologies.append(TechStackInfo(
-                    name="Cloudflare",
-                    category="CDN",
-                    confidence=1.0,
-                    detection_method="headers"
-                ))
+                technologies.append(
+                    TechStackInfo(
+                        name="Cloudflare",
+                        category="CDN",
+                        confidence=1.0,
+                        detection_method="headers",
+                    )
+                )
 
         # X-Powered-By header
         if "x-powered-by" in headers:
             powered_by = headers["x-powered-by"].lower()
             if "php" in powered_by:
-                technologies.append(TechStackInfo(
-                    name="PHP",
-                    category="Programming Language",
-                    confidence=1.0,
-                    detection_method="headers"
-                ))
+                technologies.append(
+                    TechStackInfo(
+                        name="PHP",
+                        category="Programming Language",
+                        confidence=1.0,
+                        detection_method="headers",
+                    )
+                )
             elif "express" in powered_by:
-                technologies.append(TechStackInfo(
-                    name="Express",
-                    category="Web Framework",
-                    confidence=1.0,
-                    detection_method="headers"
-                ))
+                technologies.append(
+                    TechStackInfo(
+                        name="Express",
+                        category="Web Framework",
+                        confidence=1.0,
+                        detection_method="headers",
+                    )
+                )
 
         # Framework-specific headers
         if "x-aspnet-version" in headers:
-            technologies.append(TechStackInfo(
-                name="ASP.NET",
-                version=headers["x-aspnet-version"],
-                category="Web Framework",
-                confidence=1.0,
-                detection_method="headers"
-            ))
+            technologies.append(
+                TechStackInfo(
+                    name="ASP.NET",
+                    version=headers["x-aspnet-version"],
+                    category="Web Framework",
+                    confidence=1.0,
+                    detection_method="headers",
+                )
+            )
 
         return technologies
 
@@ -185,40 +192,50 @@ class TechStackDetector:
             src = script.get("src", "").lower()
 
             if "react" in src:
-                technologies.append(TechStackInfo(
-                    name="React",
-                    category="JavaScript Framework",
-                    confidence=0.9,
-                    detection_method="html_script"
-                ))
+                technologies.append(
+                    TechStackInfo(
+                        name="React",
+                        category="JavaScript Framework",
+                        confidence=0.9,
+                        detection_method="html_script",
+                    )
+                )
             elif "vue" in src:
-                technologies.append(TechStackInfo(
-                    name="Vue.js",
-                    category="JavaScript Framework",
-                    confidence=0.9,
-                    detection_method="html_script"
-                ))
+                technologies.append(
+                    TechStackInfo(
+                        name="Vue.js",
+                        category="JavaScript Framework",
+                        confidence=0.9,
+                        detection_method="html_script",
+                    )
+                )
             elif "angular" in src:
-                technologies.append(TechStackInfo(
-                    name="Angular",
-                    category="JavaScript Framework",
-                    confidence=0.9,
-                    detection_method="html_script"
-                ))
+                technologies.append(
+                    TechStackInfo(
+                        name="Angular",
+                        category="JavaScript Framework",
+                        confidence=0.9,
+                        detection_method="html_script",
+                    )
+                )
             elif "jquery" in src:
-                technologies.append(TechStackInfo(
-                    name="jQuery",
-                    category="JavaScript Library",
-                    confidence=0.9,
-                    detection_method="html_script"
-                ))
+                technologies.append(
+                    TechStackInfo(
+                        name="jQuery",
+                        category="JavaScript Library",
+                        confidence=0.9,
+                        detection_method="html_script",
+                    )
+                )
             elif "bootstrap" in src:
-                technologies.append(TechStackInfo(
-                    name="Bootstrap",
-                    category="CSS Framework",
-                    confidence=0.9,
-                    detection_method="html_script"
-                ))
+                technologies.append(
+                    TechStackInfo(
+                        name="Bootstrap",
+                        category="CSS Framework",
+                        confidence=0.9,
+                        detection_method="html_script",
+                    )
+                )
 
         # Detect from link tags
         links = soup.find_all("link", href=True)
@@ -226,12 +243,14 @@ class TechStackDetector:
             href = link.get("href", "").lower()
 
             if "bootstrap" in href:
-                technologies.append(TechStackInfo(
-                    name="Bootstrap",
-                    category="CSS Framework",
-                    confidence=0.9,
-                    detection_method="html_link"
-                ))
+                technologies.append(
+                    TechStackInfo(
+                        name="Bootstrap",
+                        category="CSS Framework",
+                        confidence=0.9,
+                        detection_method="html_link",
+                    )
+                )
 
         return technologies
 
@@ -245,26 +264,26 @@ class TechStackDetector:
         if generator:
             content = generator.get("content", "").lower()
             if "wordpress" in content:
-                technologies.append(TechStackInfo(
-                    name="WordPress",
-                    category="CMS",
-                    confidence=1.0,
-                    detection_method="meta_tag"
-                ))
+                technologies.append(
+                    TechStackInfo(
+                        name="WordPress",
+                        category="CMS",
+                        confidence=1.0,
+                        detection_method="meta_tag",
+                    )
+                )
             elif "drupal" in content:
-                technologies.append(TechStackInfo(
-                    name="Drupal",
-                    category="CMS",
-                    confidence=1.0,
-                    detection_method="meta_tag"
-                ))
+                technologies.append(
+                    TechStackInfo(
+                        name="Drupal", category="CMS", confidence=1.0, detection_method="meta_tag"
+                    )
+                )
             elif "joomla" in content:
-                technologies.append(TechStackInfo(
-                    name="Joomla",
-                    category="CMS",
-                    confidence=1.0,
-                    detection_method="meta_tag"
-                ))
+                technologies.append(
+                    TechStackInfo(
+                        name="Joomla", category="CMS", confidence=1.0, detection_method="meta_tag"
+                    )
+                )
 
         return technologies
 

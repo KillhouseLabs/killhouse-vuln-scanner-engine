@@ -1,7 +1,8 @@
 """Unified Finding model for scanner results"""
 
 from __future__ import annotations
-from dataclasses import dataclass, field, asdict
+
+from dataclasses import asdict, dataclass
 from typing import Optional
 
 

@@ -8,26 +8,23 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from src.policy.engine import PolicyEngine, ActionType, ExecutionContext
-from src.feedback.state_machine import FeedbackLoopStateMachine
-from src.feedback.persistence import FeedbackLoopPersistence
-from src.feedback.llm_validator import LLMVulnerabilityValidator
 from src.config import settings
+from src.feedback.llm_validator import LLMVulnerabilityValidator
+from src.feedback.persistence import FeedbackLoopPersistence
+from src.feedback.state_machine import FeedbackLoopStateMachine
+from src.policy.engine import ActionType, ExecutionContext, PolicyEngine
 
 
 def demo_policy_engine():
     """Policy Engine 데모"""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("1️⃣  POLICY ENGINE 데모")
-    print("="*80)
+    print("=" * 80)
 
     engine = PolicyEngine()
 
     # 1. SCAN 액션 (항상 허용)
-    context = ExecutionContext(
-        target_url="https://example.com",
-        user_id="demo-user"
-    )
+    context = ExecutionContext(target_url="https://example.com", user_id="demo-user")
 
     allowed, reason = engine.check_permission(ActionType.SCAN, context)
     print(f"\n✅ SCAN 액션: {'허용됨' if allowed else '거부됨'}")
@@ -40,17 +37,13 @@ def demo_policy_engine():
 
     # 3. JWT 토큰 생성
     token = engine.generate_token(
-        user_id="demo-user",
-        permissions=["scan", "exploit"],
-        expires_in_hours=24
+        user_id="demo-user", permissions=["scan", "exploit"], expires_in_hours=24
     )
     print(f"\n🔑 생성된 JWT 토큰: {token[:50]}...")
 
     # 4. EXPLOIT 액션 (토큰 있음 - 허용됨)
     context_with_token = ExecutionContext(
-        target_url="https://example.com",
-        user_id="demo-user",
-        authorization_token=token
+        target_url="https://example.com", user_id="demo-user", authorization_token=token
     )
 
     allowed, reason = engine.check_permission(ActionType.EXPLOIT, context_with_token)
@@ -66,9 +59,9 @@ def demo_policy_engine():
 
 async def demo_feedback_loop():
     """Feedback Loop State Machine 데모"""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("2️⃣  FEEDBACK LOOP STATE MACHINE 데모")
-    print("="*80)
+    print("=" * 80)
 
     # 샘플 취약점 데이터
     vulnerabilities = [
@@ -76,26 +69,26 @@ async def demo_feedback_loop():
             "id": "CVE-2024-0001",
             "severity": "CRITICAL",
             "cvss_score": 9.8,
-            "description": "Remote code execution vulnerability in web framework"
+            "description": "Remote code execution vulnerability in web framework",
         },
         {
             "id": "CVE-2024-0002",
             "severity": "HIGH",
             "cvss_score": 8.2,
-            "description": "SQL injection vulnerability in database layer"
+            "description": "SQL injection vulnerability in database layer",
         },
         {
             "id": "CVE-2024-0003",
             "severity": "MEDIUM",
             "cvss_score": 5.3,
-            "description": "Cross-site scripting (XSS) vulnerability"
-        }
+            "description": "Cross-site scripting (XSS) vulnerability",
+        },
     ]
 
     tech_stack = {
         "technologies": {
             "nginx": {"version": "1.20.0", "category": "Web Server"},
-            "node.js": {"version": "18.0.0", "category": "Runtime"}
+            "node.js": {"version": "18.0.0", "category": "Runtime"},
         }
     }
 
@@ -171,9 +164,9 @@ async def demo_feedback_loop():
 
 def demo_persistence():
     """Persistence Layer 데모"""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("3️⃣  SQLITE PERSISTENCE 데모")
-    print("="*80)
+    print("=" * 80)
 
     # 임시 DB 생성
     db_path = Path(".feedback/demo_feedback.db")
@@ -184,16 +177,13 @@ def demo_persistence():
     # 세션 생성
     scan_id = "demo-scan-001"
     success = persistence.create_session(
-        scan_id=scan_id,
-        target_url="https://example.com",
-        metadata={"demo": True}
+        scan_id=scan_id, target_url="https://example.com", metadata={"demo": True}
     )
     print(f"\n✅ 세션 생성: {'성공' if success else '실패'}")
 
     # 관찰 추가
     persistence.add_observation(
-        scan_id=scan_id,
-        observation_data={"vulnerability_count": 5, "scan_type": "demo"}
+        scan_id=scan_id, observation_data={"vulnerability_count": 5, "scan_type": "demo"}
     )
     print("   - 관찰 데이터 추가")
 
@@ -204,13 +194,13 @@ def demo_persistence():
         hypothesis="이 취약점은 실제로 악용 가능함",
         confidence=0.85,
         evidence=["증거 1", "증거 2"],
-        validation_plan=["단계 1", "단계 2"]
+        validation_plan=["단계 1", "단계 2"],
     )
     print("   - 가설 추가")
 
     # 메트릭 조회
     metrics = persistence.get_metrics(scan_id)
-    print(f"\n📊 현재 메트릭:")
+    print("\n📊 현재 메트릭:")
     print(f"   - 관찰: {metrics['observations_made']}")
     print(f"   - 가설: {metrics['hypotheses_generated']}")
 
@@ -220,7 +210,7 @@ def demo_persistence():
 
     # 세션 정보 조회
     session = persistence.get_session(scan_id)
-    print(f"\n📄 세션 정보:")
+    print("\n📄 세션 정보:")
     print(f"   - 스캔 ID: {session['scan_id']}")
     print(f"   - 대상 URL: {session['target_url']}")
     print(f"   - 상태: {session['current_state']}")
@@ -230,9 +220,9 @@ def demo_persistence():
 
 async def demo_llm_validator():
     """LLM Validator 데모 (OpenAI API 필요)"""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("4️⃣  LLM VALIDATOR 데모")
-    print("="*80)
+    print("=" * 80)
 
     if not settings.openai_api_key:
         print("\n⚠️  OpenAI API 키가 설정되지 않았습니다.")
@@ -249,7 +239,7 @@ async def demo_llm_validator():
     validator = LLMVulnerabilityValidator(
         openai_api_key=settings.openai_api_key,
         model="gpt-4o-mini",
-        cache_dir=Path(".cache/demo_validation")
+        cache_dir=Path(".cache/demo_validation"),
     )
 
     print("🤖 LLM Validator 초기화 완료")
@@ -262,16 +252,16 @@ async def demo_llm_validator():
         evidence=[
             "사용자 입력이 직접 SQL 쿼리에 포함됨",
             "Prepared statement 미사용",
-            "인증 체크가 SQL 쿼리 전에 수행되지 않음"
+            "인증 체크가 SQL 쿼리 전에 수행되지 않음",
         ],
         validation_plan=[
             "SQL injection 페이로드 테스트",
             "인증 우회 시도",
-            "데이터베이스 접근 확인"
-        ]
+            "데이터베이스 접근 확인",
+        ],
     )
 
-    print(f"\n💡 테스트 가설:")
+    print("\n💡 테스트 가설:")
     print(f"   취약점: {hypothesis.vulnerability_id}")
     print(f"   가설: {hypothesis.hypothesis}")
     print(f"   초기 신뢰도: {hypothesis.confidence:.2f}")
@@ -282,30 +272,32 @@ async def demo_llm_validator():
         result = await validator.validate_hypothesis(
             hypothesis=hypothesis,
             tech_stack={"technologies": {"PostgreSQL": {"version": "13.0"}}},
-            target_url="https://example.com"
+            target_url="https://example.com",
         )
 
         print("\n✅ 검증 완료!")
-        print(f"\n📊 검증 결과:")
+        print("\n📊 검증 결과:")
         print(f"   - 악용 가능성: {'예' if result['is_exploitable'] else '아니오'}")
         print(f"   - 신뢰도: {result['confidence']:.2f}")
-        print(f"\n   💬 분석 내용:")
+        print("\n   💬 분석 내용:")
         print(f"   {result['reasoning'][:200]}...")
 
-        if result['attack_vectors']:
-            print(f"\n   ⚔️  공격 벡터:")
-            for vector in result['attack_vectors'][:3]:
+        if result["attack_vectors"]:
+            print("\n   ⚔️  공격 벡터:")
+            for vector in result["attack_vectors"][:3]:
                 print(f"      - {vector}")
 
-        if result['recommended_actions']:
-            print(f"\n   🔧 권장 조치:")
-            for action in result['recommended_actions'][:3]:
+        if result["recommended_actions"]:
+            print("\n   🔧 권장 조치:")
+            for action in result["recommended_actions"][:3]:
                 print(f"      - {action}")
 
-        print(f"\n   📈 메타데이터:")
+        print("\n   📈 메타데이터:")
         print(f"      - 모델: {result['validation_metadata']['model']}")
         print(f"      - 토큰 사용: {result['validation_metadata']['tokens_used']}")
-        print(f"      - 예상 비용: ~${result['validation_metadata']['tokens_used'] * 0.00000015:.6f}")
+        print(
+            f"      - 예상 비용: ~${result['validation_metadata']['tokens_used'] * 0.00000015:.6f}"
+        )
 
     except Exception as e:
         print(f"\n❌ LLM 검증 실패: {e}")
@@ -313,9 +305,9 @@ async def demo_llm_validator():
 
 async def main():
     """메인 데모 실행"""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("🚀 Phase 3 기능 데모 시작")
-    print("="*80)
+    print("=" * 80)
 
     try:
         # 1. Policy Engine
@@ -330,9 +322,9 @@ async def main():
         # 4. LLM Validator (optional)
         await demo_llm_validator()
 
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("✅ 모든 데모 완료!")
-        print("="*80)
+        print("=" * 80)
 
         print("\n📁 생성된 파일:")
         print("   - .feedback/demo-scan/state.json (State Machine 상태)")
@@ -348,6 +340,7 @@ async def main():
     except Exception as e:
         print(f"\n❌ 에러 발생: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 

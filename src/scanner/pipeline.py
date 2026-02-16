@@ -7,9 +7,9 @@ from typing import Optional
 
 import httpx
 
-from .sast import SemgrepScanner
+from .aggregator import AggregatedResult, ResultAggregator
 from .dast import NucleiScanner
-from .aggregator import ResultAggregator, AggregatedResult
+from .sast import SemgrepScanner
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +20,7 @@ class ScanPipeline:
     def __init__(self):
         self.sast_scanner = SemgrepScanner()
         self.dast_scanner = NucleiScanner()
-        self.aggregator = ResultAggregator(
-            openai_api_key=os.getenv("OPENAI_API_KEY")
-        )
+        self.aggregator = ResultAggregator(openai_api_key=os.getenv("OPENAI_API_KEY"))
 
     async def run(
         self,
@@ -36,8 +34,9 @@ class ScanPipeline:
         local_path: Optional[str] = None,
     ):
         """Execute full scan pipeline"""
-        from src.api.schemas import ScanStatus
         from pathlib import Path
+
+        from src.api.schemas import ScanStatus
 
         logger.info(f"[{scan_id}] Starting pipeline for analysis {analysis_id}")
         scan_store[scan_id]["status"] = ScanStatus.SCANNING
@@ -83,9 +82,7 @@ class ScanPipeline:
 
             # Step 5: Send callback
             if callback_url:
-                await self._send_callback(
-                    callback_url, analysis_id, result, scan_id
-                )
+                await self._send_callback(callback_url, analysis_id, result, scan_id)
 
             # Update scan store
             scan_store[scan_id]["status"] = ScanStatus.COMPLETED
@@ -100,9 +97,7 @@ class ScanPipeline:
 
             # Send failure callback
             if callback_url:
-                await self._send_failure_callback(
-                    callback_url, analysis_id, str(e)
-                )
+                await self._send_failure_callback(callback_url, analysis_id, str(e))
 
     async def _send_callback(
         self,
@@ -163,9 +158,7 @@ class ScanPipeline:
         except Exception as e:
             logger.error(f"[{scan_id}] Failed to send callback: {e}")
 
-    async def _send_failure_callback(
-        self, callback_url: str, analysis_id: str, error: str
-    ):
+    async def _send_failure_callback(self, callback_url: str, analysis_id: str, error: str):
         """Send failure notification to callback URL"""
         payload = {
             "analysis_id": analysis_id,

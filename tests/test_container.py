@@ -1,7 +1,8 @@
 """Test container orchestrator"""
 
-import pytest
 import subprocess
+
+import pytest
 
 from src.container.orchestrator import ContainerOrchestrator
 from src.container.security_policies import DEFAULT_POLICY, STRICT_POLICY
@@ -10,11 +11,7 @@ from src.container.security_policies import DEFAULT_POLICY, STRICT_POLICY
 def is_podman_available():
     """Check if podman is available"""
     try:
-        subprocess.run(
-            ["podman", "--version"],
-            capture_output=True,
-            check=True
-        )
+        subprocess.run(["podman", "--version"], capture_output=True, check=True)
         return True
     except (subprocess.CalledProcessError, FileNotFoundError):
         return False
@@ -23,11 +20,7 @@ def is_podman_available():
 def is_docker_available():
     """Check if docker is available"""
     try:
-        subprocess.run(
-            ["docker", "--version"],
-            capture_output=True,
-            check=True
-        )
+        subprocess.run(["docker", "--version"], capture_output=True, check=True)
         return True
     except (subprocess.CalledProcessError, FileNotFoundError):
         return False
@@ -44,12 +37,14 @@ def runtime():
         pytest.skip("No container runtime available (podman or docker)")
 
 
+@pytest.mark.integration
 def test_orchestrator_init(runtime):
     """Test orchestrator initialization"""
     orch = ContainerOrchestrator(runtime=runtime)
     assert orch.runtime == runtime
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(not is_podman_available(), reason="Podman not available")
 def test_create_pod():
     """Test pod creation (Podman only)"""
@@ -62,6 +57,7 @@ def test_create_pod():
     orch.cleanup_pod(pod_id)
 
 
+@pytest.mark.integration
 def test_run_container(runtime):
     """Test running a container"""
     orch = ContainerOrchestrator(runtime=runtime)
@@ -71,7 +67,7 @@ def test_run_container(runtime):
         name="test-container",
         command=["sleep", "10"],
         security_policy=STRICT_POLICY,
-        detach=True
+        detach=True,
     )
 
     assert container_id
@@ -81,27 +77,21 @@ def test_run_container(runtime):
     orch.remove_container(container_id)
 
 
+@pytest.mark.integration
 def test_execute_command(runtime):
     """Test executing command in container"""
     orch = ContainerOrchestrator(runtime=runtime)
 
     # Start container
-    container_id = orch.run_container(
-        image="alpine:latest",
-        command=["sleep", "30"],
-        detach=True
-    )
+    container_id = orch.run_container(image="alpine:latest", command=["sleep", "30"], detach=True)
 
     # Wait a bit for container to start
     import time
+
     time.sleep(2)
 
     # Execute command
-    result = orch.execute_command(
-        container_id,
-        ["echo", "hello"],
-        tty=False
-    )
+    result = orch.execute_command(container_id, ["echo", "hello"], tty=False)
 
     assert result["exit_code"] == 0
     assert "hello" in result["stdout"]
@@ -111,6 +101,7 @@ def test_execute_command(runtime):
     orch.remove_container(container_id)
 
 
+@pytest.mark.integration
 def test_security_policy():
     """Test security policy conversion"""
     policy = DEFAULT_POLICY
@@ -124,6 +115,7 @@ def test_security_policy():
     assert docker_args["cpus"] == 0.5
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(not is_podman_available(), reason="Podman not available")
 def test_container_environment_context():
     """Test container environment context manager"""

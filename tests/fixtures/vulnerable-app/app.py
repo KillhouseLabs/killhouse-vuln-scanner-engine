@@ -3,7 +3,8 @@
 import os
 import sqlite3
 import subprocess
-from flask import Flask, request, render_template_string, redirect, jsonify
+
+from flask import Flask, jsonify, redirect, render_template_string, request
 
 app = Flask(__name__)
 app.secret_key = "super_secret_key_12345"  # Hardcoded secret (Semgrep: hardcoded-credential)
@@ -88,11 +89,7 @@ def user_lookup():
     user = cursor.fetchone()
     db.close()
     if user:
-        return jsonify({
-            "id": user["id"],
-            "username": user["username"],
-            "email": user["email"]
-        })
+        return jsonify({"id": user["id"], "username": user["username"], "email": user["email"]})
     return jsonify({"error": "User not found"}), 404
 
 
@@ -100,12 +97,7 @@ def user_lookup():
 def ping():
     host = request.args.get("host", "localhost")
     # Command Injection - user input in shell command (Semgrep: command-injection)
-    result = subprocess.run(
-        f"ping -c 1 {host}",
-        shell=True,
-        capture_output=True,
-        text=True
-    )
+    result = subprocess.run(f"ping -c 1 {host}", shell=True, capture_output=True, text=True)
     return render_template_string(f"""
     <html>
     <body>
@@ -145,12 +137,14 @@ def admin_exec():
 
 @app.route("/api/health")
 def health():
-    return jsonify({
-        "status": "ok",
-        "version": "1.0.0",
-        "debug": app.debug,
-        "server": "Flask/" + os.environ.get("FLASK_VERSION", "unknown"),
-    })
+    return jsonify(
+        {
+            "status": "ok",
+            "version": "1.0.0",
+            "debug": app.debug,
+            "server": "Flask/" + os.environ.get("FLASK_VERSION", "unknown"),
+        }
+    )
 
 
 @app.route("/api/data", methods=["POST"])

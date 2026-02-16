@@ -1,11 +1,11 @@
 """Test embedding cache"""
 
-import pytest
-import asyncio
-from pathlib import Path
-import tempfile
 import shutil
+import tempfile
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from src.database.embedding_cache import EmbeddingCache
 
@@ -31,10 +31,7 @@ def mock_openai_response():
 @pytest.mark.asyncio
 async def test_embedding_cache_init(temp_cache_dir):
     """Test embedding cache initialization"""
-    cache = EmbeddingCache(
-        openai_api_key="test-key",
-        cache_dir=temp_cache_dir
-    )
+    cache = EmbeddingCache(openai_api_key="test-key", cache_dir=temp_cache_dir)
 
     assert cache.cache_dir == temp_cache_dir
     assert temp_cache_dir.exists()
@@ -44,12 +41,9 @@ async def test_embedding_cache_init(temp_cache_dir):
 @pytest.mark.asyncio
 async def test_get_embedding_with_api_call(temp_cache_dir, mock_openai_response):
     """Test getting embedding with API call"""
-    cache = EmbeddingCache(
-        openai_api_key="test-key",
-        cache_dir=temp_cache_dir
-    )
+    cache = EmbeddingCache(openai_api_key="test-key", cache_dir=temp_cache_dir)
 
-    with patch.object(cache.openai.embeddings, 'create', return_value=mock_openai_response):
+    with patch.object(cache.openai.embeddings, "create", return_value=mock_openai_response):
         embedding = await cache.get_embedding("test text")
 
         assert len(embedding) == 1536
@@ -61,12 +55,9 @@ async def test_get_embedding_with_api_call(temp_cache_dir, mock_openai_response)
 @pytest.mark.asyncio
 async def test_get_embedding_with_cache_hit(temp_cache_dir, mock_openai_response):
     """Test getting embedding with cache hit"""
-    cache = EmbeddingCache(
-        openai_api_key="test-key",
-        cache_dir=temp_cache_dir
-    )
+    cache = EmbeddingCache(openai_api_key="test-key", cache_dir=temp_cache_dir)
 
-    with patch.object(cache.openai.embeddings, 'create', return_value=mock_openai_response):
+    with patch.object(cache.openai.embeddings, "create", return_value=mock_openai_response):
         # First call - API call
         embedding1 = await cache.get_embedding("test text")
         assert cache.stats["api_calls"] == 1
@@ -84,10 +75,7 @@ async def test_get_embedding_with_cache_hit(temp_cache_dir, mock_openai_response
 @pytest.mark.asyncio
 async def test_batch_get_embeddings(temp_cache_dir):
     """Test batch embedding retrieval"""
-    cache = EmbeddingCache(
-        openai_api_key="test-key",
-        cache_dir=temp_cache_dir
-    )
+    cache = EmbeddingCache(openai_api_key="test-key", cache_dir=temp_cache_dir)
 
     texts = ["text1", "text2", "text3"]
 
@@ -99,7 +87,7 @@ async def test_batch_get_embeddings(temp_cache_dir):
         AsyncMock(embedding=[0.7, 0.8, 0.9] + [0.0] * 1533),  # text3
     ]
 
-    with patch.object(cache.openai.embeddings, 'create', return_value=mock_batch_response):
+    with patch.object(cache.openai.embeddings, "create", return_value=mock_batch_response):
         embeddings = await cache.batch_get_embeddings(texts)
 
         assert len(embeddings) == 3
@@ -109,10 +97,7 @@ async def test_batch_get_embeddings(temp_cache_dir):
 @pytest.mark.asyncio
 async def test_cache_key_generation(temp_cache_dir):
     """Test cache key generation"""
-    cache = EmbeddingCache(
-        openai_api_key="test-key",
-        cache_dir=temp_cache_dir
-    )
+    cache = EmbeddingCache(openai_api_key="test-key", cache_dir=temp_cache_dir)
 
     key1 = cache._get_cache_key("test text")
     key2 = cache._get_cache_key("test text")
@@ -128,12 +113,9 @@ async def test_cache_key_generation(temp_cache_dir):
 @pytest.mark.asyncio
 async def test_clear_cache(temp_cache_dir, mock_openai_response):
     """Test cache clearing"""
-    cache = EmbeddingCache(
-        openai_api_key="test-key",
-        cache_dir=temp_cache_dir
-    )
+    cache = EmbeddingCache(openai_api_key="test-key", cache_dir=temp_cache_dir)
 
-    with patch.object(cache.openai.embeddings, 'create', return_value=mock_openai_response):
+    with patch.object(cache.openai.embeddings, "create", return_value=mock_openai_response):
         # Create some cache entries
         await cache.get_embedding("text1")
         await cache.get_embedding("text2")
@@ -156,12 +138,9 @@ async def test_clear_cache(temp_cache_dir, mock_openai_response):
 @pytest.mark.asyncio
 async def test_get_stats(temp_cache_dir, mock_openai_response):
     """Test cache statistics"""
-    cache = EmbeddingCache(
-        openai_api_key="test-key",
-        cache_dir=temp_cache_dir
-    )
+    cache = EmbeddingCache(openai_api_key="test-key", cache_dir=temp_cache_dir)
 
-    with patch.object(cache.openai.embeddings, 'create', return_value=mock_openai_response):
+    with patch.object(cache.openai.embeddings, "create", return_value=mock_openai_response):
         # First call
         await cache.get_embedding("test1")
         # Second call (cache hit)

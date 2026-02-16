@@ -1,20 +1,18 @@
 """Integration tests for Phase 3 components"""
 
-import pytest
 import asyncio
-from pathlib import Path
-from datetime import datetime
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
-from src.policy.engine import PolicyEngine, ActionType, PolicyRule, ExecutionContext
+import pytest
+
+from src.feedback.llm_validator import LLMVulnerabilityValidator
+from src.feedback.persistence import FeedbackLoopPersistence
 from src.feedback.state_machine import (
     FeedbackLoopStateMachine,
     State,
     ValidationHypothesis,
-    ValidationAction
 )
-from src.feedback.persistence import FeedbackLoopPersistence
-from src.feedback.llm_validator import LLMVulnerabilityValidator
+from src.policy.engine import ActionType, ExecutionContext, PolicyEngine
 
 
 class TestPolicyEngine:
@@ -32,10 +30,7 @@ class TestPolicyEngine:
     def test_scan_action_allowed_by_default(self):
         """Test scan action is allowed without authorization"""
         engine = PolicyEngine()
-        context = ExecutionContext(
-            target_url="https://example.com",
-            user_id="test_user"
-        )
+        context = ExecutionContext(target_url="https://example.com", user_id="test_user")
 
         allowed, reason = engine.check_permission(ActionType.SCAN, context)
 
@@ -45,10 +40,7 @@ class TestPolicyEngine:
     def test_exploit_action_denied_without_token(self):
         """Test exploit action is denied without authorization token"""
         engine = PolicyEngine()
-        context = ExecutionContext(
-            target_url="https://example.com",
-            user_id="test_user"
-        )
+        context = ExecutionContext(target_url="https://example.com", user_id="test_user")
 
         allowed, reason = engine.check_permission(ActionType.EXPLOIT, context)
 
@@ -61,15 +53,11 @@ class TestPolicyEngine:
 
         # Generate token with exploit permission
         token = engine.generate_token(
-            user_id="test_user",
-            permissions=["exploit"],
-            expires_in_hours=1
+            user_id="test_user", permissions=["exploit"], expires_in_hours=1
         )
 
         context = ExecutionContext(
-            target_url="https://example.com",
-            user_id="test_user",
-            authorization_token=token
+            target_url="https://example.com", user_id="test_user", authorization_token=token
         )
 
         allowed, reason = engine.check_permission(ActionType.EXPLOIT, context)
@@ -81,10 +69,7 @@ class TestPolicyEngine:
         engine = PolicyEngine()
 
         # Generate valid token
-        token = engine.generate_token(
-            user_id="test_user",
-            permissions=["scan", "exploit"]
-        )
+        token = engine.generate_token(user_id="test_user", permissions=["scan", "exploit"])
 
         # Validate token
         payload = engine.validate_token(token)
@@ -96,10 +81,7 @@ class TestPolicyEngine:
     def test_denied_actions_logging(self):
         """Test denied actions are logged"""
         engine = PolicyEngine()
-        context = ExecutionContext(
-            target_url="https://example.com",
-            user_id="test_user"
-        )
+        context = ExecutionContext(target_url="https://example.com", user_id="test_user")
 
         # Attempt denied action
         engine.check_permission(ActionType.EXPLOIT, context)
@@ -127,13 +109,13 @@ class TestFeedbackLoopStateMachine:
 
         vulnerabilities = [
             {"id": "CVE-2024-0001", "severity": "HIGH"},
-            {"id": "CVE-2024-0002", "severity": "MEDIUM"}
+            {"id": "CVE-2024-0002", "severity": "MEDIUM"},
         ]
 
         sm.observe(
             vulnerabilities=vulnerabilities,
             tech_stack={"technologies": {}},
-            target_url="https://example.com"
+            target_url="https://example.com",
         )
 
         # Should auto-transition to ORIENTING
@@ -149,7 +131,7 @@ class TestFeedbackLoopStateMachine:
         vulnerabilities = [
             {"id": "CVE-2024-0001", "severity": "CRITICAL"},
             {"id": "CVE-2024-0002", "severity": "HIGH"},
-            {"id": "CVE-2024-0003", "severity": "MEDIUM"}
+            {"id": "CVE-2024-0003", "severity": "MEDIUM"},
         ]
 
         sm.observe(vulnerabilities, {}, "https://example.com")
@@ -171,7 +153,7 @@ class TestFeedbackLoopStateMachine:
                 "id": "CVE-2024-0001",
                 "severity": "CRITICAL",
                 "cvss_score": 9.5,
-                "description": "Critical vulnerability"
+                "description": "Critical vulnerability",
             }
         ]
 
@@ -278,9 +260,7 @@ class TestFeedbackLoopPersistence:
         persistence = FeedbackLoopPersistence(db_path=db_path)
 
         success = persistence.create_session(
-            scan_id="test-scan",
-            target_url="https://example.com",
-            metadata={"test": "data"}
+            scan_id="test-scan", target_url="https://example.com", metadata={"test": "data"}
         )
 
         assert success is True
@@ -297,10 +277,7 @@ class TestFeedbackLoopPersistence:
         persistence = FeedbackLoopPersistence(db_path=db_path)
 
         persistence.create_session("test-scan", "https://example.com")
-        persistence.add_observation(
-            scan_id="test-scan",
-            observation_data={"vuln_count": 5}
-        )
+        persistence.add_observation(scan_id="test-scan", observation_data={"vuln_count": 5})
 
         metrics = persistence.get_metrics("test-scan")
         assert metrics["observations_made"] == 1
@@ -317,7 +294,7 @@ class TestFeedbackLoopPersistence:
             hypothesis="Test hypothesis",
             confidence=0.8,
             evidence=["evidence1", "evidence2"],
-            validation_plan=["step1", "step2"]
+            validation_plan=["step1", "step2"],
         )
 
         metrics = persistence.get_metrics("test-scan")
@@ -341,10 +318,7 @@ class TestLLMVulnerabilityValidator:
     @pytest.mark.asyncio
     async def test_validator_initialization(self):
         """Test validator initializes correctly"""
-        validator = LLMVulnerabilityValidator(
-            openai_api_key="test-key",
-            model="gpt-4o-mini"
-        )
+        validator = LLMVulnerabilityValidator(openai_api_key="test-key", model="gpt-4o-mini")
 
         assert validator.model == "gpt-4o-mini"
         assert validator.cache_dir.exists()
@@ -353,8 +327,7 @@ class TestLLMVulnerabilityValidator:
     async def test_validate_hypothesis_with_mock(self, tmp_path):
         """Test hypothesis validation with mocked OpenAI"""
         validator = LLMVulnerabilityValidator(
-            openai_api_key="test-key",
-            cache_dir=tmp_path / "cache"
+            openai_api_key="test-key", cache_dir=tmp_path / "cache"
         )
 
         hypothesis = ValidationHypothesis(
@@ -362,21 +335,21 @@ class TestLLMVulnerabilityValidator:
             hypothesis="SQL injection possible",
             confidence=0.7,
             evidence=["User input not sanitized"],
-            validation_plan=["Test with payloads"]
+            validation_plan=["Test with payloads"],
         )
 
         # Mock OpenAI response
         mock_response = Mock()
         mock_response.choices = [Mock()]
-        mock_response.choices[0].message.content = '{"is_exploitable": true, "confidence": 0.85, "reasoning": "Test reasoning", "attack_vectors": ["SQL injection"], "prerequisites": ["Database access"], "impact_assessment": "High impact", "recommended_actions": ["Use parameterized queries"]}'
+        mock_response.choices[
+            0
+        ].message.content = '{"is_exploitable": true, "confidence": 0.85, "reasoning": "Test reasoning", "attack_vectors": ["SQL injection"], "prerequisites": ["Database access"], "impact_assessment": "High impact", "recommended_actions": ["Use parameterized queries"]}'
         mock_response.usage.total_tokens = 100
 
         mock_create = AsyncMock(return_value=mock_response)
-        with patch.object(validator.client.chat.completions, 'create', mock_create):
+        with patch.object(validator.client.chat.completions, "create", mock_create):
             result = await validator.validate_hypothesis(
-                hypothesis=hypothesis,
-                tech_stack={},
-                target_url="https://example.com"
+                hypothesis=hypothesis, tech_stack={}, target_url="https://example.com"
             )
 
         assert result["vulnerability_id"] == "CVE-2024-0001"
@@ -388,8 +361,7 @@ class TestLLMVulnerabilityValidator:
     async def test_validate_hypotheses_batch(self, tmp_path):
         """Test batch hypothesis validation"""
         validator = LLMVulnerabilityValidator(
-            openai_api_key="test-key",
-            cache_dir=tmp_path / "cache"
+            openai_api_key="test-key", cache_dir=tmp_path / "cache"
         )
 
         hypotheses = [
@@ -398,7 +370,7 @@ class TestLLMVulnerabilityValidator:
                 hypothesis=f"Test hypothesis {i}",
                 confidence=0.7,
                 evidence=["test"],
-                validation_plan=["test"]
+                validation_plan=["test"],
             )
             for i in range(3)
         ]
@@ -406,16 +378,18 @@ class TestLLMVulnerabilityValidator:
         # Mock responses
         mock_response = Mock()
         mock_response.choices = [Mock()]
-        mock_response.choices[0].message.content = '{"is_exploitable": true, "confidence": 0.8, "reasoning": "Test", "attack_vectors": [], "prerequisites": [], "impact_assessment": "Test", "recommended_actions": []}'
+        mock_response.choices[
+            0
+        ].message.content = '{"is_exploitable": true, "confidence": 0.8, "reasoning": "Test", "attack_vectors": [], "prerequisites": [], "impact_assessment": "Test", "recommended_actions": []}'
         mock_response.usage.total_tokens = 50
 
         mock_create = AsyncMock(return_value=mock_response)
-        with patch.object(validator.client.chat.completions, 'create', mock_create):
+        with patch.object(validator.client.chat.completions, "create", mock_create):
             results = await validator.validate_hypotheses(
                 hypotheses=hypotheses,
                 tech_stack={},
                 target_url="https://example.com",
-                max_concurrent=2
+                max_concurrent=2,
             )
 
         assert len(results) == 3
@@ -426,8 +400,7 @@ class TestLLMVulnerabilityValidator:
     def test_caching_mechanism(self, tmp_path):
         """Test validation result caching"""
         validator = LLMVulnerabilityValidator(
-            openai_api_key="test-key",
-            cache_dir=tmp_path / "cache"
+            openai_api_key="test-key", cache_dir=tmp_path / "cache"
         )
 
         hypothesis = ValidationHypothesis(
@@ -435,15 +408,11 @@ class TestLLMVulnerabilityValidator:
             hypothesis="Test",
             confidence=0.7,
             evidence=["test"],
-            validation_plan=["test"]
+            validation_plan=["test"],
         )
 
         # Save to cache
-        result = {
-            "vulnerability_id": "CVE-2024-0001",
-            "is_exploitable": True,
-            "confidence": 0.8
-        }
+        result = {"vulnerability_id": "CVE-2024-0001", "is_exploitable": True, "confidence": 0.8}
 
         validator._save_to_cache(hypothesis, result)
 
@@ -465,23 +434,15 @@ async def test_full_integration_flow(tmp_path):
     # Initialize components
     policy_engine = PolicyEngine()
     persistence = FeedbackLoopPersistence(db_path=db_path)
-    state_machine = FeedbackLoopStateMachine(
-        scan_id=scan_id,
-        persistence_path=tmp_path / "state"
-    )
+    state_machine = FeedbackLoopStateMachine(scan_id=scan_id, persistence_path=tmp_path / "state")
 
     # Create session
-    success = persistence.create_session(
-        scan_id=scan_id,
-        target_url="https://example.com"
-    )
+    success = persistence.create_session(scan_id=scan_id, target_url="https://example.com")
     assert success is True
 
     # Check permission
     context = ExecutionContext(
-        target_url="https://example.com",
-        user_id="test-user",
-        scan_id=scan_id
+        target_url="https://example.com", user_id="test-user", scan_id=scan_id
     )
     allowed, _ = policy_engine.check_permission(ActionType.SCAN, context)
     assert allowed is True
@@ -492,7 +453,7 @@ async def test_full_integration_flow(tmp_path):
             "id": "CVE-2024-0001",
             "severity": "CRITICAL",
             "cvss_score": 9.5,
-            "description": "Test vulnerability"
+            "description": "Test vulnerability",
         }
     ]
 
@@ -510,24 +471,20 @@ async def test_full_integration_flow(tmp_path):
 
     for h in hypotheses:
         persistence.add_hypothesis(
-            scan_id, h.vulnerability_id, h.hypothesis,
-            h.confidence, h.evidence, h.validation_plan
+            scan_id, h.vulnerability_id, h.hypothesis, h.confidence, h.evidence, h.validation_plan
         )
 
     # DECIDING
     actions = state_machine.decide()
     for a in actions:
         persistence.add_action(
-            scan_id, a.action_id, a.action_type,
-            a.target, a.parameters, a.expected_result
+            scan_id, a.action_id, a.action_type, a.target, a.parameters, a.expected_result
         )
 
     # ACTING
     executed = await state_machine.act()
     for a in executed:
-        persistence.update_action_result(
-            a.action_id, a.actual_result or "", a.success or False
-        )
+        persistence.update_action_result(a.action_id, a.actual_result or "", a.success or False)
 
     # VALIDATING
     validations = state_machine.validate()
@@ -549,7 +506,7 @@ async def test_full_integration_flow(tmp_path):
     assert metrics["actions_executed"] > 0
     assert metrics["validations_completed"] > 0
 
-    print(f"\n✅ Full integration test passed!")
+    print("\n✅ Full integration test passed!")
     print(f"   Observations: {metrics['observations_made']}")
     print(f"   Hypotheses: {metrics['hypotheses_generated']}")
     print(f"   Actions: {metrics['actions_executed']}")

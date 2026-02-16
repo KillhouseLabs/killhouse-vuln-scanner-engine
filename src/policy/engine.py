@@ -1,17 +1,19 @@
 """Policy engine for controlling execution permissions"""
 
 import logging
-import jwt
-from typing import Dict, List, Optional, Set
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
+from typing import Dict, List, Optional
+
+import jwt
 
 logger = logging.getLogger(__name__)
 
 
 class ActionType(Enum):
     """Types of actions that can be controlled"""
+
     SCAN = "scan"
     EXPLOIT = "exploit"
     MODIFY = "modify"
@@ -23,6 +25,7 @@ class ActionType(Enum):
 @dataclass
 class PolicyRule:
     """A single policy rule"""
+
     action: ActionType
     allowed: bool
     conditions: Dict = None
@@ -36,6 +39,7 @@ class PolicyRule:
 @dataclass
 class ExecutionContext:
     """Context for policy evaluation"""
+
     target_url: str
     user_id: str
     authorization_token: Optional[str] = None
@@ -55,11 +59,7 @@ class PolicyEngine:
     Validates JWT tokens and enforces security policies
     """
 
-    def __init__(
-        self,
-        jwt_secret: Optional[str] = None,
-        require_authorization: bool = False
-    ):
+    def __init__(self, jwt_secret: Optional[str] = None, require_authorization: bool = False):
         """
         Initialize policy engine
 
@@ -74,9 +74,7 @@ class PolicyEngine:
         self.policies: Dict[ActionType, List[PolicyRule]] = {
             ActionType.SCAN: [
                 PolicyRule(
-                    action=ActionType.SCAN,
-                    allowed=True,
-                    reason="Scanning is always allowed"
+                    action=ActionType.SCAN, allowed=True, reason="Scanning is always allowed"
                 )
             ],
             ActionType.EXPLOIT: [
@@ -84,7 +82,7 @@ class PolicyEngine:
                     action=ActionType.EXPLOIT,
                     allowed=False,
                     conditions={"requires_token": True},
-                    reason="Exploit execution requires valid authorization token"
+                    reason="Exploit execution requires valid authorization token",
                 )
             ],
             ActionType.MODIFY: [
@@ -92,14 +90,12 @@ class PolicyEngine:
                     action=ActionType.MODIFY,
                     allowed=False,
                     conditions={"requires_token": True, "max_risk": "MEDIUM"},
-                    reason="Modification requires authorization and low/medium risk"
+                    reason="Modification requires authorization and low/medium risk",
                 )
             ],
             ActionType.DELETE: [
                 PolicyRule(
-                    action=ActionType.DELETE,
-                    allowed=False,
-                    reason="Deletion is never allowed"
+                    action=ActionType.DELETE, allowed=False, reason="Deletion is never allowed"
                 )
             ],
             ActionType.NETWORK_REQUEST: [
@@ -107,9 +103,9 @@ class PolicyEngine:
                     action=ActionType.NETWORK_REQUEST,
                     allowed=True,
                     conditions={"rate_limit": 100},
-                    reason="Network requests allowed with rate limiting"
+                    reason="Network requests allowed with rate limiting",
                 )
-            ]
+            ],
         }
 
         # Denied actions log
@@ -131,11 +127,7 @@ class PolicyEngine:
             jwt.InvalidTokenError: If token is invalid
         """
         try:
-            payload = jwt.decode(
-                token,
-                self.jwt_secret,
-                algorithms=["HS256"]
-            )
+            payload = jwt.decode(token, self.jwt_secret, algorithms=["HS256"])
 
             # Check expiration
             if "exp" in payload:
@@ -151,10 +143,7 @@ class PolicyEngine:
             raise
 
     def generate_token(
-        self,
-        user_id: str,
-        permissions: List[str],
-        expires_in_hours: int = 24
+        self, user_id: str, permissions: List[str], expires_in_hours: int = 24
     ) -> str:
         """
         Generate JWT token for testing
@@ -171,18 +160,14 @@ class PolicyEngine:
             "user_id": user_id,
             "permissions": permissions,
             "iat": datetime.utcnow(),
-            "exp": datetime.utcnow() + timedelta(hours=expires_in_hours)
+            "exp": datetime.utcnow() + timedelta(hours=expires_in_hours),
         }
 
         token = jwt.encode(payload, self.jwt_secret, algorithm="HS256")
         logger.info(f"Generated token for user {user_id}")
         return token
 
-    def check_permission(
-        self,
-        action: ActionType,
-        context: ExecutionContext
-    ) -> tuple[bool, str]:
+    def check_permission(self, action: ActionType, context: ExecutionContext) -> tuple[bool, str]:
         """
         Check if action is permitted
 
@@ -221,16 +206,20 @@ class PolicyEngine:
                         if max_risk:
                             risk_order = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
                             if risk_order.index(context.risk_level) > risk_order.index(max_risk):
-                                reason = f"Risk level {context.risk_level} exceeds maximum {max_risk}"
+                                reason = (
+                                    f"Risk level {context.risk_level} exceeds maximum {max_risk}"
+                                )
                                 self._log_denied_action(action, context, reason)
                                 return False, reason
 
                         # Token validated, action allowed
-                        logger.info(f"Action {action.value} allowed via token for user {token_data.get('user_id')}")
+                        logger.info(
+                            f"Action {action.value} allowed via token for user {token_data.get('user_id')}"
+                        )
                         return True, "Authorized via valid token"
 
                     except jwt.InvalidTokenError as e:
-                        reason = f"Invalid authorization token: {str(e)}"
+                        reason = f"Invalid authorization token: {e!s}"
                         self._log_denied_action(action, context, reason)
                         return False, reason
                 else:
@@ -248,24 +237,21 @@ class PolicyEngine:
         self._log_denied_action(action, context, reason)
         return False, reason
 
-    def _log_denied_action(
-        self,
-        action: ActionType,
-        context: ExecutionContext,
-        reason: str
-    ):
+    def _log_denied_action(self, action: ActionType, context: ExecutionContext, reason: str):
         """Log denied action"""
-        self.denied_actions.append({
-            "action": action.value,
-            "context": {
-                "target_url": context.target_url,
-                "user_id": context.user_id,
-                "scan_id": context.scan_id,
-                "risk_level": context.risk_level
-            },
-            "reason": reason,
-            "timestamp": datetime.now().isoformat()
-        })
+        self.denied_actions.append(
+            {
+                "action": action.value,
+                "context": {
+                    "target_url": context.target_url,
+                    "user_id": context.user_id,
+                    "scan_id": context.scan_id,
+                    "risk_level": context.risk_level,
+                },
+                "reason": reason,
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
         logger.warning(f"Denied action: {action.value} - {reason}")
 
     def get_denied_actions(self) -> List[Dict]:

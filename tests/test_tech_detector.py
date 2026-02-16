@@ -1,10 +1,10 @@
 """Test tech stack detector"""
 
-import pytest
-import asyncio
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import Mock, patch
 
-from src.detection.tech_stack_detector import TechStackDetector, TechStackInfo
+import pytest
+
+from src.detection.tech_stack_detector import TechStackDetector
 
 
 @pytest.fixture
@@ -24,10 +24,7 @@ def mock_response():
         </body>
     </html>
     """
-    response.headers = {
-        "server": "nginx/1.20.1",
-        "x-powered-by": "PHP/7.4.3"
-    }
+    response.headers = {"server": "nginx/1.20.1", "x-powered-by": "PHP/7.4.3"}
     return response
 
 
@@ -100,7 +97,7 @@ async def test_detect_integration(mock_response):
     detector = TechStackDetector()
 
     # Mock the HTTP client
-    with patch.object(detector.client, 'get', return_value=mock_response):
+    with patch.object(detector.client, "get", return_value=mock_response):
         technologies = await detector.detect("https://example.com")
 
         # Should detect multiple technologies
@@ -108,7 +105,9 @@ async def test_detect_integration(mock_response):
 
         tech_names = [tech.name for tech in technologies]
         # At least some common technologies should be detected
-        assert any(name in tech_names for name in ["Nginx", "PHP", "React", "Bootstrap", "WordPress"])
+        assert any(
+            name in tech_names for name in ["Nginx", "PHP", "React", "Bootstrap", "WordPress"]
+        )
 
     await detector.close()
 

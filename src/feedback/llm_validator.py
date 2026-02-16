@@ -1,13 +1,14 @@
 """LLM-based vulnerability validation engine"""
 
-import logging
 import json
-from typing import Dict, List, Optional, Any
-from pathlib import Path
-from openai import AsyncOpenAI
+import logging
 from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Optional
 
-from .state_machine import ValidationHypothesis, ValidationAction
+from openai import AsyncOpenAI
+
+from .state_machine import ValidationAction, ValidationHypothesis
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ class LLMVulnerabilityValidator:
         self,
         openai_api_key: str,
         model: str = "gpt-4o-mini",
-        cache_dir: Path = Path(".cache/llm_validation")
+        cache_dir: Path = Path(".cache/llm_validation"),
     ):
         """
         Initialize LLM validator
@@ -52,7 +53,7 @@ class LLMVulnerabilityValidator:
 
         if cache_path.exists():
             try:
-                with open(cache_path, 'r', encoding='utf-8') as f:
+                with open(cache_path, encoding="utf-8") as f:
                     cached = json.load(f)
                     logger.debug(f"Loaded validation from cache: {hypothesis.vulnerability_id}")
                     return cached
@@ -66,7 +67,7 @@ class LLMVulnerabilityValidator:
         cache_path = self._get_cache_path(hypothesis)
 
         try:
-            with open(cache_path, 'w', encoding='utf-8') as f:
+            with open(cache_path, "w", encoding="utf-8") as f:
                 json.dump(result, f, ensure_ascii=False, indent=2)
                 logger.debug(f"Saved validation to cache: {hypothesis.vulnerability_id}")
         except Exception as e:
@@ -77,7 +78,7 @@ class LLMVulnerabilityValidator:
         hypothesis: ValidationHypothesis,
         tech_stack: Dict,
         target_url: str,
-        use_cache: bool = True
+        use_cache: bool = True,
     ) -> Dict:
         """
         Validate a single vulnerability hypothesis using LLM
@@ -154,15 +155,12 @@ Be specific, practical, and consider real-world exploitability."""
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a cybersecurity expert specializing in vulnerability assessment and validation. Provide accurate, practical analysis based on real-world exploitability."
+                        "content": "You are a cybersecurity expert specializing in vulnerability assessment and validation. Provide accurate, practical analysis based on real-world exploitability.",
                     },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
+                    {"role": "user", "content": prompt},
                 ],
                 response_format={"type": "json_object"},
-                temperature=0.3  # Lower temperature for more consistent analysis
+                temperature=0.3,  # Lower temperature for more consistent analysis
             )
 
             # Parse response
@@ -183,8 +181,8 @@ Be specific, practical, and consider real-world exploitability."""
                     "timestamp": datetime.now().isoformat(),
                     "tokens_used": response.usage.total_tokens,
                     "original_hypothesis": hypothesis.hypothesis,
-                    "original_confidence": hypothesis.confidence
-                }
+                    "original_confidence": hypothesis.confidence,
+                },
             }
 
             # Cache result
@@ -207,7 +205,7 @@ Be specific, practical, and consider real-world exploitability."""
                 "vulnerability_id": hypothesis.vulnerability_id,
                 "is_exploitable": False,
                 "confidence": 0.0,
-                "reasoning": f"Validation failed: {str(e)}",
+                "reasoning": f"Validation failed: {e!s}",
                 "attack_vectors": [],
                 "prerequisites": [],
                 "impact_assessment": "Unable to assess",
@@ -215,8 +213,8 @@ Be specific, practical, and consider real-world exploitability."""
                 "validation_metadata": {
                     "model": self.model,
                     "timestamp": datetime.now().isoformat(),
-                    "error": str(e)
-                }
+                    "error": str(e),
+                },
             }
 
     async def validate_hypotheses(
@@ -225,7 +223,7 @@ Be specific, practical, and consider real-world exploitability."""
         tech_stack: Dict,
         target_url: str,
         max_concurrent: int = 3,
-        use_cache: bool = True
+        use_cache: bool = True,
     ) -> List[Dict]:
         """
         Validate multiple hypotheses with concurrency control
@@ -247,18 +245,10 @@ Be specific, practical, and consider real-world exploitability."""
 
         async def validate_with_semaphore(hypothesis: ValidationHypothesis):
             async with semaphore:
-                return await self.validate_hypothesis(
-                    hypothesis,
-                    tech_stack,
-                    target_url,
-                    use_cache
-                )
+                return await self.validate_hypothesis(hypothesis, tech_stack, target_url, use_cache)
 
         # Process all hypotheses
-        tasks = [
-            validate_with_semaphore(hypothesis)
-            for hypothesis in hypotheses
-        ]
+        tasks = [validate_with_semaphore(hypothesis) for hypothesis in hypotheses]
 
         results = await asyncio.gather(*tasks)
 
@@ -270,7 +260,7 @@ Be specific, practical, and consider real-world exploitability."""
         self,
         hypothesis: ValidationHypothesis,
         validation_result: Dict,
-        action_results: List[ValidationAction]
+        action_results: List[ValidationAction],
     ) -> ValidationHypothesis:
         """
         Refine a hypothesis based on validation and action results
@@ -306,7 +296,7 @@ Be specific, practical, and consider real-world exploitability."""
             confidence=new_confidence,
             evidence=new_evidence,
             validation_plan=hypothesis.validation_plan,
-            created_at=hypothesis.created_at
+            created_at=hypothesis.created_at,
         )
 
         logger.info(
@@ -321,7 +311,7 @@ Be specific, practical, and consider real-world exploitability."""
         hypotheses: List[ValidationHypothesis],
         validation_results: List[Dict],
         tech_stack: Dict,
-        target_url: str
+        target_url: str,
     ) -> Dict:
         """
         Generate comprehensive validation report
@@ -339,8 +329,7 @@ Be specific, practical, and consider real-world exploitability."""
         total = len(validation_results)
         exploitable = sum(1 for r in validation_results if r["is_exploitable"])
         high_confidence = sum(
-            1 for r in validation_results
-            if r["is_exploitable"] and r["confidence"] >= 0.7
+            1 for r in validation_results if r["is_exploitable"] and r["confidence"] >= 0.7
         )
 
         # Collect all attack vectors
@@ -365,7 +354,7 @@ Be specific, practical, and consider real-world exploitability."""
                 "total_hypotheses": total,
                 "exploitable_count": exploitable,
                 "high_confidence_count": high_confidence,
-                "validation_rate": f"{(exploitable/total*100):.1f}%" if total > 0 else "0%"
+                "validation_rate": f"{(exploitable / total * 100):.1f}%" if total > 0 else "0%",
             },
             "tech_stack": tech_stack,
             "exploitable_vulnerabilities": [
@@ -373,26 +362,25 @@ Be specific, practical, and consider real-world exploitability."""
                     "vulnerability_id": r["vulnerability_id"],
                     "confidence": r["confidence"],
                     "impact": r["impact_assessment"],
-                    "attack_vectors": r["attack_vectors"]
+                    "attack_vectors": r["attack_vectors"],
                 }
                 for r in validation_results
                 if r["is_exploitable"]
             ],
             "attack_surface": {
                 "unique_vectors": unique_vectors,
-                "vector_count": len(unique_vectors)
+                "vector_count": len(unique_vectors),
             },
             "recommendations": {
                 "priority_actions": unique_recommendations[:10],  # Top 10
-                "total_recommendations": len(unique_recommendations)
+                "total_recommendations": len(unique_recommendations),
             },
             "detailed_results": validation_results,
-            "generated_at": datetime.now().isoformat()
+            "generated_at": datetime.now().isoformat(),
         }
 
         logger.info(
-            f"Generated validation report: "
-            f"{exploitable}/{total} exploitable vulnerabilities"
+            f"Generated validation report: {exploitable}/{total} exploitable vulnerabilities"
         )
 
         return report

@@ -1,14 +1,14 @@
 """Git worktree manager for isolated vulnerability scanning"""
 
-import subprocess
 import fcntl
-import os
-import uuid
-from pathlib import Path
-from datetime import datetime, timedelta
-from contextlib import contextmanager
-from typing import Optional, Dict, List
 import logging
+import os
+import subprocess
+import uuid
+from contextlib import contextmanager
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Dict, Optional
 
 from .registry import WorktreeRegistry
 
@@ -34,7 +34,7 @@ class WorktreeManager:
     @contextmanager
     def _lock(self):
         """Atomic locking mechanism for git operations"""
-        with open(self.lock_file, 'r') as f:
+        with open(self.lock_file) as f:
             fcntl.flock(f.fileno(), fcntl.LOCK_EX)
             try:
                 yield
@@ -42,10 +42,7 @@ class WorktreeManager:
                 fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
     def create_worktree(
-        self,
-        commit_ref: str = "HEAD",
-        scan_id: Optional[str] = None,
-        detached: bool = True
+        self, commit_ref: str = "HEAD", scan_id: Optional[str] = None, detached: bool = True
     ) -> Dict[str, str]:
         """
         Create a new worktree for vulnerability scanning
@@ -68,22 +65,14 @@ class WorktreeManager:
         with self._lock():
             try:
                 # Create worktree
-                cmd = [
-                    "git", "-C", str(self.repo_path),
-                    "worktree", "add"
-                ]
+                cmd = ["git", "-C", str(self.repo_path), "worktree", "add"]
 
                 if detached:
                     cmd.append("--detach")
 
                 cmd.extend([str(worktree_path), commit_ref])
 
-                result = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    check=True
-                )
+                result = subprocess.run(cmd, capture_output=True, text=True, check=True)
 
                 # Register worktree
                 worktree_info = {
@@ -91,7 +80,7 @@ class WorktreeManager:
                     "path": str(worktree_path),
                     "commit_ref": commit_ref,
                     "created_at": datetime.now().isoformat(),
-                    "scan_id": scan_id
+                    "scan_id": scan_id,
                 }
 
                 self.registry.register(worktree_name, worktree_info)
@@ -121,10 +110,7 @@ class WorktreeManager:
         with self._lock():
             try:
                 # Remove worktree using git
-                cmd = [
-                    "git", "-C", str(self.repo_path),
-                    "worktree", "remove"
-                ]
+                cmd = ["git", "-C", str(self.repo_path), "worktree", "remove"]
 
                 if force:
                     cmd.append("--force")
@@ -143,6 +129,7 @@ class WorktreeManager:
                 # Force cleanup if directory still exists
                 if worktree_path.exists():
                     import shutil
+
                     shutil.rmtree(worktree_path, ignore_errors=True)
                     self.registry.unregister(worktree_id)
 
@@ -173,7 +160,7 @@ class WorktreeManager:
                 ["git", "-C", str(self.repo_path), "worktree", "prune"],
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
             )
             logger.info("Pruned stale worktree references")
         except subprocess.CalledProcessError as e:

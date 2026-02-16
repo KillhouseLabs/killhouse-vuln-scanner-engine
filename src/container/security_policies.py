@@ -1,7 +1,7 @@
 """Security policies for container execution"""
 
 from dataclasses import dataclass
-from typing import List, Dict, Optional
+from typing import Dict, List
 
 
 @dataclass
@@ -39,10 +39,7 @@ class SecurityPolicy:
             self.cap_add = ["NET_BIND_SERVICE"]
 
         if self.security_opt is None:
-            self.security_opt = [
-                "no-new-privileges:true",
-                "label=type:container_t"
-            ]
+            self.security_opt = ["no-new-privileges:true", "label=type:container_t"]
 
     def to_podman_args(self) -> Dict:
         """Convert to Podman run arguments"""
@@ -73,7 +70,7 @@ STRICT_POLICY = SecurityPolicy(
     read_only=True,
     cap_drop=["ALL"],
     cap_add=[],  # No capabilities
-    network_mode="none"
+    network_mode="none",
 )
 
 SCANNER_POLICY = SecurityPolicy(
@@ -83,5 +80,5 @@ SCANNER_POLICY = SecurityPolicy(
     read_only=False,  # Scanner needs write access for temp files
     cap_drop=["ALL"],
     cap_add=["NET_BIND_SERVICE"],
-    network_mode="bridge"  # Scanner needs network
+    network_mode="bridge",  # Scanner needs network
 )

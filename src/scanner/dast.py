@@ -1,8 +1,8 @@
 """Nuclei DAST scanner wrapper"""
 
-import subprocess
 import json
 import logging
+import subprocess
 from typing import List
 
 from .models import Finding
@@ -23,18 +23,23 @@ class NucleiScanner:
             result = subprocess.run(
                 [
                     "nuclei",
-                    "-u", target_url,
+                    "-u",
+                    target_url,
                     "-jsonl",
                     "-silent",
-                    "-severity", "low,medium,high,critical",
-                    "-timeout", "10",
+                    "-severity",
+                    "low,medium,high,critical",
+                    "-timeout",
+                    "10",
                 ],
                 capture_output=True,
                 text=True,
                 timeout=self.timeout,
             )
             if result.returncode != 0 and not result.stdout.strip():
-                logger.warning(f"Nuclei exited with code {result.returncode}: {result.stderr[:500]}")
+                logger.warning(
+                    f"Nuclei exited with code {result.returncode}: {result.stderr[:500]}"
+                )
 
             return self._parse_output(result.stdout)
         except subprocess.TimeoutExpired:
@@ -77,16 +82,18 @@ class NucleiScanner:
 
             severity_raw = info.get("severity", "info")
 
-            findings.append(Finding(
-                tool="nuclei",
-                type="dast",
-                severity=Finding.normalize_severity(severity_raw),
-                title=data.get("template-id", info.get("name", "unknown")),
-                description=info.get("description", info.get("name", "")),
-                url=data.get("matched-at", data.get("host", target_url)),
-                cwe=cwe,
-                reference=reference,
-            ))
+            findings.append(
+                Finding(
+                    tool="nuclei",
+                    type="dast",
+                    severity=Finding.normalize_severity(severity_raw),
+                    title=data.get("template-id", info.get("name", "unknown")),
+                    description=info.get("description", info.get("name", "")),
+                    url=data.get("matched-at", data.get("host", "")),
+                    cwe=cwe,
+                    reference=reference,
+                )
+            )
 
         logger.info(f"Nuclei found {len(findings)} issues")
         return findings

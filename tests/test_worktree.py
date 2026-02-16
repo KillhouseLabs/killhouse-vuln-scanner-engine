@@ -1,10 +1,11 @@
 """Test git worktree manager"""
 
-import pytest
-import tempfile
 import shutil
-from pathlib import Path
 import subprocess
+import tempfile
+from pathlib import Path
+
+import pytest
 
 from src.worktree.manager import WorktreeManager, worktree_context
 
@@ -18,26 +19,14 @@ def temp_repo():
 
     # Initialize git repo
     subprocess.run(["git", "init"], cwd=repo_path, check=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@example.com"],
-        cwd=repo_path,
-        check=True
-    )
-    subprocess.run(
-        ["git", "config", "user.name", "Test User"],
-        cwd=repo_path,
-        check=True
-    )
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo_path, check=True)
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=repo_path, check=True)
 
     # Create initial commit
     test_file = repo_path / "test.txt"
     test_file.write_text("test content")
     subprocess.run(["git", "add", "."], cwd=repo_path, check=True)
-    subprocess.run(
-        ["git", "commit", "-m", "Initial commit"],
-        cwd=repo_path,
-        check=True
-    )
+    subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=repo_path, check=True)
 
     yield repo_path
 
@@ -111,7 +100,6 @@ def test_worktree_context(temp_repo):
 
 def test_cleanup_old_worktrees(temp_repo):
     """Test cleanup of old worktrees"""
-    import time
     from datetime import datetime, timedelta
 
     manager = WorktreeManager(str(temp_repo))

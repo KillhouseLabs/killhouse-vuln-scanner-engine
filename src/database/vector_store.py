@@ -1,12 +1,12 @@
 """Supabase pgvector storage for vulnerability embeddings"""
 
-import logging
-from typing import List, Dict, Optional
-from dataclasses import dataclass
 import json
+import logging
+from dataclasses import dataclass
+from typing import Dict, List, Optional
 
-from supabase import create_client, Client
 from openai import AsyncOpenAI
+from supabase import Client, create_client
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class VulnerabilityEmbedding:
     """Vulnerability with embedding vector"""
+
     id: str
     tech_name: str
     vulnerability_id: str
@@ -32,12 +33,7 @@ class VulnerabilityEmbedding:
 class VectorStore:
     """Vector storage using Supabase pgvector"""
 
-    def __init__(
-        self,
-        supabase_url: str,
-        supabase_key: str,
-        openai_api_key: str
-    ):
+    def __init__(self, supabase_url: str, supabase_key: str, openai_api_key: str):
         """
         Initialize vector store
 
@@ -62,10 +58,7 @@ class VectorStore:
             Embedding vector
         """
         try:
-            response = await self.openai.embeddings.create(
-                model=self.embedding_model,
-                input=text
-            )
+            response = await self.openai.embeddings.create(model=self.embedding_model, input=text)
             return response.data[0].embedding
 
         except Exception as e:
@@ -80,7 +73,7 @@ class VectorStore:
         description: str,
         severity: str,
         cvss_score: float,
-        metadata: Optional[Dict] = None
+        metadata: Optional[Dict] = None,
     ) -> str:
         """
         Store vulnerability with embedding in Supabase
@@ -111,7 +104,7 @@ class VectorStore:
                 "severity": severity,
                 "cvss_score": cvss_score,
                 "embedding": embedding,
-                "metadata": json.dumps(metadata or {})
+                "metadata": json.dumps(metadata or {}),
             }
 
             result = self.supabase.table("vulnerabilities").insert(data).execute()
@@ -128,7 +121,7 @@ class VectorStore:
         query: str,
         tech_name: Optional[str] = None,
         limit: int = 10,
-        similarity_threshold: float = 0.7
+        similarity_threshold: float = 0.7,
     ) -> List[Dict]:
         """
         Search for similar vulnerabilities using semantic search
@@ -151,16 +144,13 @@ class VectorStore:
             rpc_params = {
                 "query_embedding": query_embedding,
                 "match_threshold": similarity_threshold,
-                "match_count": limit
+                "match_count": limit,
             }
 
             if tech_name:
                 rpc_params["filter_tech_name"] = tech_name
 
-            result = self.supabase.rpc(
-                "match_vulnerabilities",
-                rpc_params
-            ).execute()
+            result = self.supabase.rpc("match_vulnerabilities", rpc_params).execute()
 
             logger.info(f"Found {len(result.data)} similar vulnerabilities")
             return result.data
@@ -170,10 +160,7 @@ class VectorStore:
             return []
 
     async def get_by_tech(
-        self,
-        tech_name: str,
-        severity: Optional[str] = None,
-        limit: int = 50
+        self, tech_name: str, severity: Optional[str] = None, limit: int = 50
     ) -> List[Dict]:
         """
         Get vulnerabilities by technology name
@@ -204,10 +191,7 @@ class VectorStore:
             logger.error(f"Failed to get vulnerabilities: {e}")
             return []
 
-    async def batch_store(
-        self,
-        vulnerabilities: List[Dict]
-    ) -> List[str]:
+    async def batch_store(self, vulnerabilities: List[Dict]) -> List[str]:
         """
         Batch store multiple vulnerabilities
 
@@ -228,7 +212,7 @@ class VectorStore:
                     description=vuln["description"],
                     severity=vuln["severity"],
                     cvss_score=vuln["cvss_score"],
-                    metadata=vuln.get("metadata")
+                    metadata=vuln.get("metadata"),
                 )
                 ids.append(record_id)
 

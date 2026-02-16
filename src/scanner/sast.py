@@ -1,12 +1,12 @@
 """Semgrep SAST scanner wrapper"""
 
-import subprocess
 import json
-import tempfile
-import shutil
 import logging
+import shutil
+import subprocess
+import tempfile
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 from .models import Finding
 

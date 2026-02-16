@@ -1,15 +1,19 @@
 """Configuration management for Vulner platform"""
 
-from pydantic_settings import BaseSettings
 from pathlib import Path
 from typing import Optional
+
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables"""
 
-    # OpenAI
-    openai_api_key: str
+    # OpenAI (optional - not all modules need it)
+    openai_api_key: Optional[str] = None
+
+    # Scanner
+    scanner_api_key: Optional[str] = None
 
     # Supabase (optional for core testing)
     supabase_url: Optional[str] = None
@@ -37,5 +41,6 @@ class Settings(BaseSettings):
         env_file_encoding = "utf-8"
 
 
-# Global settings instance
-settings = Settings()
+def get_settings() -> Settings:
+    """Lazy settings factory - avoids crash at import time if env vars are missing"""
+    return Settings()

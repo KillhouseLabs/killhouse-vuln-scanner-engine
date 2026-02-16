@@ -1,12 +1,12 @@
 """SQLite-based state persistence for feedback loop"""
 
-import sqlite3
 import json
 import logging
-from typing import Dict, List, Optional, Any
-from pathlib import Path
-from datetime import datetime
+import sqlite3
 from contextlib import contextmanager
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ class FeedbackLoopPersistence:
         try:
             yield conn
             conn.commit()
-        except Exception as e:
+        except Exception:
             conn.rollback()
             raise
         finally:
@@ -154,19 +154,22 @@ class FeedbackLoopPersistence:
             """)
 
             # Create indices
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_transitions_scan ON state_transitions(scan_id)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_observations_scan ON observations(scan_id)")
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_transitions_scan ON state_transitions(scan_id)"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_observations_scan ON observations(scan_id)"
+            )
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_hypotheses_scan ON hypotheses(scan_id)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_actions_scan ON actions(scan_id)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_validations_scan ON validations(scan_id)")
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_validations_scan ON validations(scan_id)"
+            )
 
             logger.info("Database schema initialized")
 
     def create_session(
-        self,
-        scan_id: str,
-        target_url: str,
-        metadata: Optional[Dict] = None
+        self, scan_id: str, target_url: str, metadata: Optional[Dict] = None
     ) -> bool:
         """
         Create a new scan session
@@ -184,24 +187,23 @@ class FeedbackLoopPersistence:
                 cursor = conn.cursor()
 
                 now = datetime.now().isoformat()
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO scan_sessions
                     (scan_id, target_url, current_state, created_at, updated_at, metadata)
                     VALUES (?, ?, ?, ?, ?, ?)
-                """, (
-                    scan_id,
-                    target_url,
-                    "idle",
-                    now,
-                    now,
-                    json.dumps(metadata or {})
-                ))
+                """,
+                    (scan_id, target_url, "idle", now, now, json.dumps(metadata or {})),
+                )
 
                 # Initialize metrics
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO metrics (scan_id, start_time)
                     VALUES (?, ?)
-                """, (scan_id, now))
+                """,
+                    (scan_id, now),
+                )
 
                 logger.info(f"Created scan session: {scan_id}")
                 return True
@@ -210,12 +212,7 @@ class FeedbackLoopPersistence:
             logger.warning(f"Scan session already exists: {scan_id}")
             return False
 
-    def update_state(
-        self,
-        scan_id: str,
-        new_state: str,
-        iteration: Optional[int] = None
-    ):
+    def update_state(self, scan_id: str, new_state: str, iteration: Optional[int] = None):
         """Update current state of scan session"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -238,50 +235,51 @@ class FeedbackLoopPersistence:
         from_state: str,
         to_state: str,
         reason: str,
-        metadata: Optional[Dict] = None
+        metadata: Optional[Dict] = None,
     ):
         """Record a state transition"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO state_transitions
                 (scan_id, from_state, to_state, reason, timestamp, metadata)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, (
-                scan_id,
-                from_state,
-                to_state,
-                reason,
-                datetime.now().isoformat(),
-                json.dumps(metadata or {})
-            ))
+            """,
+                (
+                    scan_id,
+                    from_state,
+                    to_state,
+                    reason,
+                    datetime.now().isoformat(),
+                    json.dumps(metadata or {}),
+                ),
+            )
 
-    def add_observation(
-        self,
-        scan_id: str,
-        observation_data: Dict
-    ):
+    def add_observation(self, scan_id: str, observation_data: Dict):
         """Record an observation"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO observations
                 (scan_id, observation_data, observation_time)
                 VALUES (?, ?, ?)
-            """, (
-                scan_id,
-                json.dumps(observation_data),
-                datetime.now().isoformat()
-            ))
+            """,
+                (scan_id, json.dumps(observation_data), datetime.now().isoformat()),
+            )
 
             # Update metrics
-            cursor.execute("""
+            cursor.execute(
+                """
                 UPDATE metrics
                 SET observations_made = observations_made + 1
                 WHERE scan_id = ?
-            """, (scan_id,))
+            """,
+                (scan_id,),
+            )
 
     def add_hypothesis(
         self,
@@ -290,32 +288,38 @@ class FeedbackLoopPersistence:
         hypothesis: str,
         confidence: float,
         evidence: List[str],
-        validation_plan: List[str]
+        validation_plan: List[str],
     ):
         """Record a hypothesis"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO hypotheses
                 (scan_id, vulnerability_id, hypothesis, confidence, evidence, validation_plan, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                scan_id,
-                vulnerability_id,
-                hypothesis,
-                confidence,
-                json.dumps(evidence),
-                json.dumps(validation_plan),
-                datetime.now().isoformat()
-            ))
+            """,
+                (
+                    scan_id,
+                    vulnerability_id,
+                    hypothesis,
+                    confidence,
+                    json.dumps(evidence),
+                    json.dumps(validation_plan),
+                    datetime.now().isoformat(),
+                ),
+            )
 
             # Update metrics
-            cursor.execute("""
+            cursor.execute(
+                """
                 UPDATE metrics
                 SET hypotheses_generated = hypotheses_generated + 1
                 WHERE scan_id = ?
-            """, (scan_id,))
+            """,
+                (scan_id,),
+            )
 
     def add_action(
         self,
@@ -324,100 +328,100 @@ class FeedbackLoopPersistence:
         action_type: str,
         target: str,
         parameters: Dict,
-        expected_result: str
+        expected_result: str,
     ):
         """Record a planned action"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO actions
                 (scan_id, action_id, action_type, target, parameters, expected_result)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, (
-                scan_id,
-                action_id,
-                action_type,
-                target,
-                json.dumps(parameters),
-                expected_result
-            ))
+            """,
+                (scan_id, action_id, action_type, target, json.dumps(parameters), expected_result),
+            )
 
-    def update_action_result(
-        self,
-        action_id: str,
-        actual_result: str,
-        success: bool
-    ):
+    def update_action_result(self, action_id: str, actual_result: str, success: bool):
         """Update action with execution result"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 UPDATE actions
                 SET actual_result = ?, success = ?, executed_at = ?
                 WHERE action_id = ?
-            """, (
-                actual_result,
-                1 if success else 0,
-                datetime.now().isoformat(),
-                action_id
-            ))
+            """,
+                (actual_result, 1 if success else 0, datetime.now().isoformat(), action_id),
+            )
 
             # Update metrics
-            cursor.execute("""
+            cursor.execute(
+                """
                 UPDATE metrics
                 SET actions_executed = actions_executed + 1
                 WHERE scan_id = (SELECT scan_id FROM actions WHERE action_id = ?)
-            """, (action_id,))
+            """,
+                (action_id,),
+            )
 
     def add_validation(
-        self,
-        scan_id: str,
-        vulnerability_id: str,
-        is_valid: bool,
-        details: Optional[Dict] = None
+        self, scan_id: str, vulnerability_id: str, is_valid: bool, details: Optional[Dict] = None
     ):
         """Record a validation result"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO validations
                 (scan_id, vulnerability_id, is_valid, validation_time, details)
                 VALUES (?, ?, ?, ?, ?)
-            """, (
-                scan_id,
-                vulnerability_id,
-                1 if is_valid else 0,
-                datetime.now().isoformat(),
-                json.dumps(details or {})
-            ))
+            """,
+                (
+                    scan_id,
+                    vulnerability_id,
+                    1 if is_valid else 0,
+                    datetime.now().isoformat(),
+                    json.dumps(details or {}),
+                ),
+            )
 
             # Update metrics
             if is_valid:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     UPDATE metrics
                     SET validations_completed = validations_completed + 1,
                         true_positives = true_positives + 1
                     WHERE scan_id = ?
-                """, (scan_id,))
+                """,
+                    (scan_id,),
+                )
             else:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     UPDATE metrics
                     SET validations_completed = validations_completed + 1,
                         false_positives = false_positives + 1
                     WHERE scan_id = ?
-                """, (scan_id,))
+                """,
+                    (scan_id,),
+                )
 
     def get_session(self, scan_id: str) -> Optional[Dict]:
         """Get scan session by ID"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT * FROM scan_sessions WHERE scan_id = ?
-            """, (scan_id,))
+            """,
+                (scan_id,),
+            )
 
             row = cursor.fetchone()
             if row:
@@ -429,11 +433,14 @@ class FeedbackLoopPersistence:
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT * FROM state_transitions
                 WHERE scan_id = ?
                 ORDER BY timestamp ASC
-            """, (scan_id,))
+            """,
+                (scan_id,),
+            )
 
             return [dict(row) for row in cursor.fetchall()]
 
@@ -442,9 +449,12 @@ class FeedbackLoopPersistence:
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT * FROM metrics WHERE scan_id = ?
-            """, (scan_id,))
+            """,
+                (scan_id,),
+            )
 
             row = cursor.fetchone()
             if row:
@@ -458,27 +468,36 @@ class FeedbackLoopPersistence:
 
             now = datetime.now().isoformat()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 UPDATE scan_sessions
                 SET completed_at = ?, updated_at = ?
                 WHERE scan_id = ?
-            """, (now, now, scan_id))
+            """,
+                (now, now, scan_id),
+            )
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 UPDATE metrics
                 SET end_time = ?, total_loops = total_loops + 1
                 WHERE scan_id = ?
-            """, (now, scan_id))
+            """,
+                (now, scan_id),
+            )
 
     def get_all_sessions(self, limit: int = 100) -> List[Dict]:
         """Get all scan sessions"""
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT * FROM scan_sessions
                 ORDER BY created_at DESC
                 LIMIT ?
-            """, (limit,))
+            """,
+                (limit,),
+            )
 
             return [dict(row) for row in cursor.fetchall()]

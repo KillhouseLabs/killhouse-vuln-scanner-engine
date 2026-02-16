@@ -1,12 +1,12 @@
 """Container orchestrator for vulnerability scanning"""
 
-import subprocess
 import logging
+import subprocess
 import time
-from typing import Optional, Dict, List
 from contextlib import contextmanager
+from typing import Dict, List, Optional
 
-from .security_policies import SecurityPolicy, DEFAULT_POLICY, SCANNER_POLICY
+from .security_policies import DEFAULT_POLICY, SCANNER_POLICY, SecurityPolicy
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +28,7 @@ class ContainerOrchestrator:
         """Validate that container runtime is available"""
         try:
             result = subprocess.run(
-                [self.runtime, "--version"],
-                capture_output=True,
-                text=True,
-                check=True
+                [self.runtime, "--version"], capture_output=True, text=True, check=True
             )
             logger.info(f"Using {self.runtime}: {result.stdout.strip()}")
         except (subprocess.CalledProcessError, FileNotFoundError):
@@ -57,12 +54,7 @@ class ContainerOrchestrator:
             cmd.extend(["--network", "none"])
 
         try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                check=True
-            )
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
             pod_id = result.stdout.strip()
             logger.info(f"Created pod: {pod_name} ({pod_id})")
             return pod_id
@@ -78,7 +70,7 @@ class ContainerOrchestrator:
         pod: Optional[str] = None,
         security_policy: SecurityPolicy = None,
         detach: bool = True,
-        env: Optional[Dict[str, str]] = None
+        env: Optional[Dict[str, str]] = None,
     ) -> str:
         """
         Run a container
@@ -152,12 +144,7 @@ class ContainerOrchestrator:
             cmd.extend(command)
 
         try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                check=True
-            )
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
             container_id = result.stdout.strip()
             logger.info(f"Started container: {name or container_id[:12]}")
             return container_id
@@ -166,10 +153,7 @@ class ContainerOrchestrator:
             raise
 
     def run_app_container(
-        self,
-        image: str,
-        pod: Optional[str] = None,
-        security_policy: SecurityPolicy = None
+        self, image: str, pod: Optional[str] = None, security_policy: SecurityPolicy = None
     ) -> str:
         """Run user application container with strict security"""
         if security_policy is None:
@@ -180,19 +164,12 @@ class ContainerOrchestrator:
             name=f"app-{pod}" if pod else None,
             pod=pod,
             security_policy=security_policy,
-            detach=True
+            detach=True,
         )
 
-    def run_scanner_sidecar(
-        self,
-        pod: Optional[str] = None,
-        scanner: str = "trivy"
-    ) -> str:
+    def run_scanner_sidecar(self, pod: Optional[str] = None, scanner: str = "trivy") -> str:
         """Run vulnerability scanner as sidecar"""
-        scanner_images = {
-            "trivy": "aquasec/trivy:latest",
-            "grype": "anchore/grype:latest"
-        }
+        scanner_images = {"trivy": "aquasec/trivy:latest", "grype": "anchore/grype:latest"}
 
         image = scanner_images.get(scanner, "aquasec/trivy:latest")
         command = ["server", "--listen", "127.0.0.1:8081"] if scanner == "trivy" else None
@@ -203,15 +180,11 @@ class ContainerOrchestrator:
             command=command,
             pod=pod,
             security_policy=SCANNER_POLICY,
-            detach=True
+            detach=True,
         )
 
     def execute_command(
-        self,
-        container_id: str,
-        cmd: List[str],
-        tty: bool = False,
-        demux: bool = True
+        self, container_id: str, cmd: List[str], tty: bool = False, demux: bool = True
     ) -> Dict:
         """
         Execute command in container
@@ -234,17 +207,12 @@ class ContainerOrchestrator:
         exec_cmd.extend(cmd)
 
         try:
-            result = subprocess.run(
-                exec_cmd,
-                capture_output=True,
-                text=True,
-                timeout=300
-            )
+            result = subprocess.run(exec_cmd, capture_output=True, text=True, timeout=300)
 
             return {
                 "exit_code": result.returncode,
                 "stdout": result.stdout,
-                "stderr": result.stderr
+                "stderr": result.stderr,
             }
         except subprocess.TimeoutExpired:
             logger.error(f"Command timed out in container {container_id}")
@@ -260,7 +228,7 @@ class ContainerOrchestrator:
                 [self.runtime, "stop", "-t", str(timeout), container_id],
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
             )
             logger.info(f"Stopped container: {container_id[:12]}")
         except subprocess.CalledProcessError as e:
@@ -290,15 +258,12 @@ class ContainerOrchestrator:
                 ["podman", "pod", "stop", "-t", str(timeout), pod_id],
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
             )
 
             # Remove pod (removes all containers in pod)
             subprocess.run(
-                ["podman", "pod", "rm", "-f", pod_id],
-                capture_output=True,
-                text=True,
-                check=True
+                ["podman", "pod", "rm", "-f", pod_id], capture_output=True, text=True, check=True
             )
 
             logger.info(f"Cleaned up pod: {pod_id[:12]}")
@@ -308,9 +273,7 @@ class ContainerOrchestrator:
 
 @contextmanager
 def container_environment(
-    orchestrator: ContainerOrchestrator,
-    user_image: str,
-    use_pod: bool = True
+    orchestrator: ContainerOrchestrator, user_image: str, use_pod: bool = True
 ):
     """Context manager for automatic container cleanup"""
     pod_id = None
@@ -332,7 +295,7 @@ def container_environment(
         yield {
             "pod_id": pod_id,
             "app_container": app_container,
-            "scanner_container": scanner_container
+            "scanner_container": scanner_container,
         }
 
     finally:

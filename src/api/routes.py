@@ -1,18 +1,20 @@
 """API routes for scanner engine"""
 
 import logging
-from uuid import uuid4
 from datetime import datetime
-from typing import Dict, Any
+from typing import Any, Dict
+from uuid import uuid4
+
 from fastapi import APIRouter, BackgroundTasks, HTTPException
+
+from src.scanner.pipeline import ScanPipeline
 
 from .schemas import (
     ScanRequest,
     ScanResponse,
-    ScanStatusResponse,
     ScanStatus,
+    ScanStatusResponse,
 )
-from src.scanner.pipeline import ScanPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -57,9 +59,7 @@ async def create_scan(
     """
     scan_id = str(uuid4())[:8]
 
-    logger.info(
-        f"Creating scan {scan_id} for analysis {request.analysis_id}"
-    )
+    logger.info(f"Creating scan {scan_id} for analysis {request.analysis_id}")
 
     # Store scan info
     scan_store[scan_id] = {

@@ -1,10 +1,9 @@
 """Result aggregation and AI summary generation for scan findings"""
 
 import logging
-import json
 import os
+from dataclasses import dataclass, field
 from typing import List, Optional
-from dataclasses import dataclass, field, asdict
 
 from openai import AsyncOpenAI
 
@@ -16,6 +15,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class AggregatedResult:
     """Aggregated scan results from all scanners"""
+
     findings: List[Finding] = field(default_factory=list)
     total: int = 0
     critical_count: int = 0
@@ -118,29 +118,20 @@ class ResultAggregator:
         dast_findings = [f for f in result.findings if f.type == "dast"]
 
         if sast_findings:
-            result.sast_summary = await self._summarize_findings(
-                sast_findings, "SAST (정적 분석)"
-            )
+            result.sast_summary = await self._summarize_findings(sast_findings, "SAST (정적 분석)")
 
         if dast_findings:
-            result.dast_summary = await self._summarize_findings(
-                dast_findings, "DAST (동적 분석)"
-            )
+            result.dast_summary = await self._summarize_findings(dast_findings, "DAST (동적 분석)")
 
         result.executive_summary = await self._generate_executive(result)
         return result
 
-    async def _summarize_findings(
-        self, findings: List[Finding], scan_type: str
-    ) -> str:
+    async def _summarize_findings(self, findings: List[Finding], scan_type: str) -> str:
         """Generate a summary for a set of findings"""
         # Prepare findings text (limit to top 20 for token efficiency)
         findings_text = ""
         for i, f in enumerate(findings[:20]):
-            findings_text += (
-                f"\n{i+1}. [{f.severity}] {f.title}\n"
-                f"   {f.description[:200]}\n"
-            )
+            findings_text += f"\n{i + 1}. [{f.severity}] {f.title}\n   {f.description[:200]}\n"
             if f.file_path:
                 findings_text += f"   File: {f.file_path}:{f.line}\n"
             if f.url:
@@ -159,7 +150,10 @@ class ResultAggregator:
             response = await self.client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "보안 전문가로서 취약점 스캔 결과를 한국어로 간결하게 요약합니다."},
+                    {
+                        "role": "system",
+                        "content": "보안 전문가로서 취약점 스캔 결과를 한국어로 간결하게 요약합니다.",
+                    },
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0.3,
@@ -181,8 +175,8 @@ class ResultAggregator:
 - Medium: {result.medium_count}개
 - Low: {result.low_count}개
 
-SAST 요약: {result.sast_summary or '해당 없음'}
-DAST 요약: {result.dast_summary or '해당 없음'}
+SAST 요약: {result.sast_summary or "해당 없음"}
+DAST 요약: {result.dast_summary or "해당 없음"}
 
 경영진 요약에 포함할 내용:
 1. 전반적인 보안 위험 수준 (상/중/하)
@@ -193,7 +187,10 @@ DAST 요약: {result.dast_summary or '해당 없음'}
             response = await self.client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "보안 CISO로서 경영진에게 보안 스캔 결과를 보고합니다. 한국어로 작성하며, 비기술적 용어를 사용합니다."},
+                    {
+                        "role": "system",
+                        "content": "보안 CISO로서 경영진에게 보안 스캔 결과를 보고합니다. 한국어로 작성하며, 비기술적 용어를 사용합니다.",
+                    },
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0.3,

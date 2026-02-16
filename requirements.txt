@@ -38,6 +38,9 @@ requests==2.31.0
 pyjwt==2.8.0
 cryptography==41.0.7
 
+# Linting
+ruff==0.8.6
+
 # Testing
 pytest==7.4.3
 pytest-asyncio==0.21.1

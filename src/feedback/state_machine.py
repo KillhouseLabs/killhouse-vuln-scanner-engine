@@ -12,19 +12,20 @@
 
 """
 
-import logging
 import json
-from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, asdict
-from enum import Enum
+import logging
+from dataclasses import asdict, dataclass
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
 
 class State(Enum):
     """Feedback loop states"""
+
     IDLE = "idle"
     OBSERVING = "observing"
     ORIENTING = "orienting"
@@ -38,6 +39,7 @@ class State(Enum):
 @dataclass
 class StateTransition:
     """Record of state transition"""
+
     from_state: State
     to_state: State
     reason: str
@@ -52,6 +54,7 @@ class StateTransition:
 @dataclass
 class ValidationHypothesis:
     """Hypothesis about a vulnerability"""
+
     vulnerability_id: str
     hypothesis: str
     confidence: float  # 0.0 to 1.0
@@ -67,6 +70,7 @@ class ValidationHypothesis:
 @dataclass
 class ValidationAction:
     """Action to validate a hypothesis"""
+
     action_id: str
     action_type: str  # 'probe', 'test', 'verify', 'analyze'
     target: str
@@ -80,6 +84,7 @@ class ValidationAction:
 @dataclass
 class LoopMetrics:
     """Metrics for feedback loop execution"""
+
     total_loops: int = 0
     observations_made: int = 0
     hypotheses_generated: int = 0
@@ -100,11 +105,7 @@ class FeedbackLoopStateMachine:
     Implements an OODA-inspired loop for iterative vulnerability validation
     """
 
-    def __init__(
-        self,
-        scan_id: str,
-        persistence_path: Optional[Path] = None
-    ):
+    def __init__(self, scan_id: str, persistence_path: Optional[Path] = None):
         """
         Initialize feedback loop state machine
 
@@ -152,13 +153,15 @@ class FeedbackLoopStateMachine:
             to_state=new_state,
             reason=reason,
             timestamp=datetime.now().isoformat(),
-            metadata=metadata or {}
+            metadata=metadata or {},
         )
 
         self.transitions.append(transition)
         self.current_state = new_state
 
-        logger.info(f"State transition: {transition.from_state.value} -> {transition.to_state.value}: {reason}")
+        logger.info(
+            f"State transition: {transition.from_state.value} -> {transition.to_state.value}: {reason}"
+        )
 
         # Persist state
         self._persist_state()
@@ -184,7 +187,7 @@ class FeedbackLoopStateMachine:
             "tech_stack": tech_stack,
             "vulnerabilities": vulnerabilities,
             "observation_time": datetime.now().isoformat(),
-            "total_vulnerabilities": len(vulnerabilities)
+            "total_vulnerabilities": len(vulnerabilities),
         }
 
         self.observations.append(observation)
@@ -217,10 +220,7 @@ class FeedbackLoopStateMachine:
             severity_counts[severity] = severity_counts.get(severity, 0) + 1
 
         # Identify high-priority vulnerabilities
-        high_priority = [
-            v for v in vulnerabilities
-            if v.get("severity") in ["CRITICAL", "HIGH"]
-        ]
+        high_priority = [v for v in vulnerabilities if v.get("severity") in ["CRITICAL", "HIGH"]]
 
         analysis = {
             "total_vulnerabilities": len(vulnerabilities),
@@ -228,7 +228,7 @@ class FeedbackLoopStateMachine:
             "high_priority_count": len(high_priority),
             "high_priority_vulns": high_priority,
             "tech_stack": observation.get("tech_stack", {}),
-            "analysis_time": datetime.now().isoformat()
+            "analysis_time": datetime.now().isoformat(),
         }
 
         self.state_data["orientation"] = analysis
@@ -267,13 +267,13 @@ class FeedbackLoopStateMachine:
                 evidence=[
                     f"CVSS Score: {vuln.get('cvss_score', 'N/A')}",
                     f"Severity: {vuln.get('severity', 'UNKNOWN')}",
-                    f"Description: {vuln.get('description', '')[:200]}"
+                    f"Description: {vuln.get('description', '')[:200]}",
                 ],
                 validation_plan=[
                     "Check if affected version matches target",
                     "Verify vulnerability applicability",
-                    "Test for exploitability (if authorized)"
-                ]
+                    "Test for exploitability (if authorized)",
+                ],
             )
             hypotheses.append(hypothesis)
 
@@ -308,11 +308,8 @@ class FeedbackLoopStateMachine:
                 action_id=f"action_{self.scan_id}_{i}",
                 action_type="verify",
                 target=hypothesis.vulnerability_id,
-                parameters={
-                    "hypothesis": hypothesis.hypothesis,
-                    "confidence_threshold": 0.6
-                },
-                expected_result="Vulnerability confirmed or rejected"
+                parameters={"hypothesis": hypothesis.hypothesis, "confidence_threshold": 0.6},
+                expected_result="Vulnerability confirmed or rejected",
             )
             actions.append(action)
 
@@ -376,10 +373,7 @@ class FeedbackLoopStateMachine:
         validations = {}
         for hypothesis in hypotheses:
             # Find corresponding action
-            action = next(
-                (a for a in actions if a.target == hypothesis.vulnerability_id),
-                None
-            )
+            action = next((a for a in actions if a.target == hypothesis.vulnerability_id), None)
 
             if action and action.success:
                 # Consider validated if confidence is high enough
@@ -429,16 +423,16 @@ class FeedbackLoopStateMachine:
                     "from": t.from_state.value,
                     "to": t.to_state.value,
                     "reason": t.reason,
-                    "timestamp": t.timestamp
+                    "timestamp": t.timestamp,
                 }
                 for t in self.transitions
             ],
-            "generated_at": datetime.now().isoformat()
+            "generated_at": datetime.now().isoformat(),
         }
 
         # Save report
         report_path = self.persistence_path / "feedback_report.json"
-        with open(report_path, 'w') as f:
+        with open(report_path, "w") as f:
             json.dump(report, f, indent=2, ensure_ascii=False)
 
         logger.info(f"Generated feedback loop report: {report_path}")
@@ -458,10 +452,10 @@ class FeedbackLoopStateMachine:
             if isinstance(value, list):
                 # Convert list of dataclass objects to dicts
                 serializable_state_data[key] = [
-                    asdict(item) if hasattr(item, '__dataclass_fields__') else item
+                    asdict(item) if hasattr(item, "__dataclass_fields__") else item
                     for item in value
                 ]
-            elif hasattr(value, '__dataclass_fields__'):
+            elif hasattr(value, "__dataclass_fields__"):
                 # Convert single dataclass object to dict
                 serializable_state_data[key] = asdict(value)
             else:
@@ -473,10 +467,10 @@ class FeedbackLoopStateMachine:
             "current_iteration": self.current_iteration,
             "state_data": serializable_state_data,
             "metrics": asdict(self.metrics),
-            "last_updated": datetime.now().isoformat()
+            "last_updated": datetime.now().isoformat(),
         }
 
-        with open(state_file, 'w') as f:
+        with open(state_file, "w") as f:
             json.dump(state, f, indent=2, ensure_ascii=False)
 
     def get_state_summary(self) -> Dict:
@@ -488,5 +482,5 @@ class FeedbackLoopStateMachine:
             "hypotheses": len(self.hypotheses),
             "actions": len(self.actions),
             "validations": len(self.validations),
-            "metrics": asdict(self.metrics)
+            "metrics": asdict(self.metrics),
         }

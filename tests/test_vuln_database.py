@@ -1,10 +1,10 @@
 """Test vulnerability database"""
 
-import pytest
-import asyncio
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import Mock, patch
 
-from src.vulnerability.vuln_database import VulnerabilityDatabase, Vulnerability
+import pytest
+
+from src.vulnerability.vuln_database import VulnerabilityDatabase
 
 
 @pytest.fixture
@@ -16,28 +16,12 @@ def mock_osv_response():
                 "id": "GHSA-xxxx-yyyy-zzzz",
                 "summary": "XSS vulnerability in React",
                 "details": "Cross-site scripting vulnerability in React versions < 17.0.2",
-                "severity": [
-                    {
-                        "type": "CVSS_V3",
-                        "score": 7.5
-                    }
-                ],
+                "severity": [{"type": "CVSS_V3", "score": 7.5}],
                 "affected": [
-                    {
-                        "ranges": [
-                            {
-                                "events": [
-                                    {"introduced": "16.0.0"},
-                                    {"fixed": "17.0.2"}
-                                ]
-                            }
-                        ]
-                    }
+                    {"ranges": [{"events": [{"introduced": "16.0.0"}, {"fixed": "17.0.2"}]}]}
                 ],
-                "references": [
-                    {"url": "https://example.com/advisory"}
-                ],
-                "published": "2021-03-15T00:00:00Z"
+                "references": [{"url": "https://example.com/advisory"}],
+                "published": "2021-03-15T00:00:00Z",
             }
         ]
     }
@@ -61,20 +45,9 @@ async def test_parse_osv_vulnerability():
         "summary": "Test Vulnerability",
         "details": "This is a test vulnerability",
         "severity": [{"type": "CVSS_V3", "score": 8.5}],
-        "affected": [
-            {
-                "ranges": [
-                    {
-                        "events": [
-                            {"introduced": "1.0.0"},
-                            {"fixed": "1.2.0"}
-                        ]
-                    }
-                ]
-            }
-        ],
+        "affected": [{"ranges": [{"events": [{"introduced": "1.0.0"}, {"fixed": "1.2.0"}]}]}],
         "references": [{"url": "https://example.com"}],
-        "published": "2023-01-01T00:00:00Z"
+        "published": "2023-01-01T00:00:00Z",
     }
 
     vuln = db._parse_osv_vulnerability(vuln_data)
@@ -97,7 +70,7 @@ async def test_query_vulnerabilities_with_cache(mock_osv_response):
     db = VulnerabilityDatabase()
 
     # Mock OSV API response
-    with patch.object(db.osv_client, 'post') as mock_post:
+    with patch.object(db.osv_client, "post") as mock_post:
         mock_response = Mock()  # Use Mock, not AsyncMock
         mock_response.json.return_value = mock_osv_response
         mock_response.raise_for_status = Mock()
@@ -124,7 +97,7 @@ async def test_query_osv(mock_osv_response):
     """Test OSV.dev API query"""
     db = VulnerabilityDatabase()
 
-    with patch.object(db.osv_client, 'post') as mock_post:
+    with patch.object(db.osv_client, "post") as mock_post:
         mock_response = Mock()  # Use Mock, not AsyncMock
         mock_response.json.return_value = mock_osv_response
         mock_response.raise_for_status = Mock()

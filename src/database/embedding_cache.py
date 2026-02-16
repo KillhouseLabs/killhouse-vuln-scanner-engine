@@ -3,9 +3,9 @@
 import hashlib
 import json
 import logging
-from pathlib import Path
-from typing import List, Optional, Dict
 from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Dict, List, Optional
 
 from openai import AsyncOpenAI
 
@@ -20,7 +20,7 @@ class EmbeddingCache:
         openai_api_key: str,
         cache_dir: Path = Path(".cache/embeddings"),
         cache_ttl_days: int = 30,
-        model: str = "text-embedding-3-small"
+        model: str = "text-embedding-3-small",
     ):
         """
         Initialize embedding cache
@@ -41,11 +41,7 @@ class EmbeddingCache:
         self._memory_cache: Dict[str, List[float]] = {}
 
         # Stats
-        self.stats = {
-            "hits": 0,
-            "misses": 0,
-            "api_calls": 0
-        }
+        self.stats = {"hits": 0, "misses": 0, "api_calls": 0}
 
     def _get_cache_key(self, text: str) -> str:
         """Generate cache key from text"""
@@ -105,10 +101,7 @@ class EmbeddingCache:
         logger.debug("Cache miss - calling OpenAI API")
 
         try:
-            response = await self.openai.embeddings.create(
-                model=self.model,
-                input=text
-            )
+            response = await self.openai.embeddings.create(model=self.model, input=text)
             embedding = response.data[0].embedding
 
             # Store in memory cache
@@ -120,7 +113,7 @@ class EmbeddingCache:
                 "text_preview": text[:100],  # For debugging
                 "embedding": embedding,
                 "model": self.model,
-                "created_at": datetime.now().isoformat()
+                "created_at": datetime.now().isoformat(),
             }
             cache_path.write_text(json.dumps(cache_data))
 
@@ -132,9 +125,7 @@ class EmbeddingCache:
             raise
 
     async def batch_get_embeddings(
-        self,
-        texts: List[str],
-        batch_size: int = 100
+        self, texts: List[str], batch_size: int = 100
     ) -> List[List[float]]:
         """
         Get embeddings for multiple texts with batching
@@ -185,14 +176,11 @@ class EmbeddingCache:
 
             # Process in batches
             for batch_start in range(0, len(uncached_texts), batch_size):
-                batch = uncached_texts[batch_start:batch_start + batch_size]
-                batch_indices = uncached_indices[batch_start:batch_start + batch_size]
+                batch = uncached_texts[batch_start : batch_start + batch_size]
+                batch_indices = uncached_indices[batch_start : batch_start + batch_size]
 
                 try:
-                    response = await self.openai.embeddings.create(
-                        model=self.model,
-                        input=batch
-                    )
+                    response = await self.openai.embeddings.create(model=self.model, input=batch)
                     self.stats["api_calls"] += 1
 
                     # Store embeddings
@@ -212,7 +200,7 @@ class EmbeddingCache:
                             "text_preview": text[:100],
                             "embedding": embedding,
                             "model": self.model,
-                            "created_at": datetime.now().isoformat()
+                            "created_at": datetime.now().isoformat(),
                         }
                         cache_path.write_text(json.dumps(cache_data))
 
@@ -260,19 +248,14 @@ class EmbeddingCache:
     def get_stats(self) -> Dict:
         """Get cache statistics"""
         total_requests = self.stats["hits"] + self.stats["misses"]
-        hit_rate = (
-            self.stats["hits"] / total_requests * 100
-            if total_requests > 0
-            else 0
-        )
+        hit_rate = self.stats["hits"] / total_requests * 100 if total_requests > 0 else 0
 
         return {
             **self.stats,
             "total_requests": total_requests,
             "hit_rate_percent": round(hit_rate, 2),
-            "cache_size_mb": sum(
-                f.stat().st_size for f in self.cache_dir.rglob("*.json")
-            ) / (1024 * 1024)
+            "cache_size_mb": sum(f.stat().st_size for f in self.cache_dir.rglob("*.json"))
+            / (1024 * 1024),
         }
 
     async def __aenter__(self):

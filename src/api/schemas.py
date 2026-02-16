@@ -1,13 +1,15 @@
 """Pydantic schemas for API requests and responses"""
 
-from pydantic import BaseModel
-from typing import Optional
 from datetime import datetime
 from enum import Enum
+from typing import Optional
+
+from pydantic import BaseModel
 
 
 class ScanStatus(str, Enum):
     """Status of a vulnerability scan"""
+
     ACCEPTED = "ACCEPTED"
     SCANNING = "SCANNING"
     COMPLETED = "COMPLETED"
@@ -16,6 +18,7 @@ class ScanStatus(str, Enum):
 
 class ScanRequest(BaseModel):
     """Request to initiate a vulnerability scan"""
+
     analysis_id: str
     repo_url: Optional[str] = None
     branch: str = "main"
@@ -26,6 +29,7 @@ class ScanRequest(BaseModel):
 
 class ScanResponse(BaseModel):
     """Response after initiating a scan"""
+
     scan_id: str
     status: ScanStatus
     message: str = ""
@@ -33,6 +37,7 @@ class ScanResponse(BaseModel):
 
 class ScanStatusResponse(BaseModel):
     """Response containing current scan status"""
+
     scan_id: str
     analysis_id: str
     status: ScanStatus

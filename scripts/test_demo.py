@@ -9,13 +9,12 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from src.container.orchestrator import ContainerOrchestrator
 from src.main import VulnerPlatform
 from src.worktree.manager import WorktreeManager
-from src.container.orchestrator import ContainerOrchestrator
 
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -27,10 +26,7 @@ def test_worktree_manager():
     logger.info("=" * 60)
 
     try:
-        manager = WorktreeManager(
-            repo_path=".",
-            worktree_base="/tmp/vulner-test-worktrees"
-        )
+        manager = WorktreeManager(repo_path=".", worktree_base="/tmp/vulner-test-worktrees")
 
         # Create worktree
         logger.info("Creating worktree...")
@@ -45,7 +41,7 @@ def test_worktree_manager():
 
         # Remove worktree
         logger.info("Removing worktree...")
-        manager.remove_worktree(wt['worktree_id'], force=True)
+        manager.remove_worktree(wt["worktree_id"], force=True)
         logger.info("✅ Worktree removed")
 
         return True
@@ -83,7 +79,7 @@ def test_container_orchestrator():
             image="alpine:latest",
             name="vulner-demo-test",
             command=["echo", "Hello from Vulner!"],
-            detach=False
+            detach=False,
         )
         logger.info(f"✅ Container executed: {container_id[:12]}")
 
@@ -118,18 +114,12 @@ async def test_main_platform():
                 return True
 
         logger.info("Initializing Vulner platform...")
-        platform = VulnerPlatform(
-            repo_path=".",
-            container_runtime=runtime
-        )
+        platform = VulnerPlatform(repo_path=".", container_runtime=runtime)
         logger.info("✅ Platform initialized")
 
         # Run scan (this will use placeholder methods)
         logger.info("Running test scan...")
-        result = await platform.scan_target(
-            url="https://example.com",
-            user_image="alpine:latest"
-        )
+        result = await platform.scan_target(url="https://example.com", user_image="alpine:latest")
 
         logger.info(f"✅ Scan completed: {result.scan_id}")
         logger.info(f"   Status: {result.status}")
@@ -144,6 +134,7 @@ async def test_main_platform():
     except Exception as e:
         logger.error(f"❌ Platform test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
