@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [master, develop]
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   quality:
     name: Code Quality
@@ -58,3 +62,17 @@ jobs:
 
       - name: Build Docker image
         run: docker build -f Dockerfile.api -t killhouse-scanner-engine:ci .
+
+  deploy:
+    name: Deploy
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    needs: build
+    uses: KillhouseLabs/.github/.github/workflows/deploy.yml@main
+    with:
+      service_name: scanner-api
+      dockerfile: Dockerfile.api
+    secrets:
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+    permissions:
+      id-token: write
+      contents: read
