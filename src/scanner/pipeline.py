@@ -219,9 +219,7 @@ class ScanPipeline:
             "step_result": step_results["dast"].to_dict(),
         }
 
-        has_failure = any(
-            sr.status == "failed" for sr in step_results.values()
-        )
+        has_failure = any(sr.status == "failed" for sr in step_results.values())
         final_status = "COMPLETED_WITH_ERRORS" if has_failure else "COMPLETED"
 
         payload = {

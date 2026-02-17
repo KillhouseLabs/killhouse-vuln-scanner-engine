@@ -44,8 +44,10 @@ def run_dast_scan(context):
     from src.scanner.dast import NucleiScanner
 
     scanner = NucleiScanner(timeout=60)
-    with patch("src.scanner.dast.subprocess.run") as mock_run, \
-         patch("src.scanner.dast.docker.from_env") as mock_docker:
+    with (
+        patch("src.scanner.dast.subprocess.run") as mock_run,
+        patch("src.scanner.dast.docker.from_env") as mock_docker,
+    ):
         mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
         mock_network = MagicMock()
         mock_docker.return_value.networks.get.return_value = mock_network
