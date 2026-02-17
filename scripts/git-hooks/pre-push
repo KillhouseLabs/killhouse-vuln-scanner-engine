@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Pre-push hook: run unit tests
+
+echo "🧪 Running unit tests..."
+pytest -m "not integration" -q --tb=short
+
+echo "✅ Pre-push checks passed"
