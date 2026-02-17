@@ -9,7 +9,11 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 from src.scanner.pipeline import ScanPipeline
 
+from src.scanner.fix_generator import FixGenerator
+
 from .schemas import (
+    FixSuggestionRequest,
+    FixSuggestionResponse,
     ScanRequest,
     ScanResponse,
     ScanStatus,
@@ -110,6 +114,37 @@ async def get_scan_status(scan_id: str):
         started_at=scan_data["started_at"],
         completed_at=scan_data["completed_at"],
         error=scan_data["error"],
+    )
+
+
+@router.post("/api/fix-suggestion", response_model=FixSuggestionResponse)
+async def fix_suggestion(request: FixSuggestionRequest):
+    """
+    Generate AI-powered code fix suggestion
+
+    Takes source code and vulnerability info, returns fixed code with explanation.
+    """
+    generator = FixGenerator()
+
+    try:
+        result = await generator.generate_fix(
+            source_code=request.source_code,
+            file_path=request.file_path,
+            line=request.line,
+            severity=request.severity,
+            rule=request.rule,
+            cwe=request.cwe,
+            description=request.description,
+        )
+    except RuntimeError:
+        raise HTTPException(
+            status_code=503,
+            detail="OpenAI API key is not configured",
+        )
+
+    return FixSuggestionResponse(
+        explanation=result["explanation"],
+        fixed_code=result["fixed_code"],
     )
 
 

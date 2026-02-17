@@ -45,3 +45,22 @@ class ScanStatusResponse(BaseModel):
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     error: Optional[str] = None
+
+
+class FixSuggestionRequest(BaseModel):
+    """Request for AI code fix suggestion"""
+
+    source_code: str
+    file_path: str
+    line: int
+    severity: str
+    rule: str = ""
+    cwe: str = ""
+    description: str = ""
+
+
+class FixSuggestionResponse(BaseModel):
+    """Response containing AI-generated code fix"""
+
+    explanation: str
+    fixed_code: str
