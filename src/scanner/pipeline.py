@@ -54,7 +54,9 @@ class ScanPipeline:
                 logger.info(f"[{scan_id}] Running SAST scan on local path {local_path}")
                 try:
                     if callback_url:
-                        await self._send_status_callback(callback_url, analysis_id, "STATIC_ANALYSIS", scan_id)
+                        await self._send_status_callback(
+                            callback_url, analysis_id, "STATIC_ANALYSIS", scan_id
+                        )
                     sast_findings = self.sast_scanner.run(Path(local_path))
                     logger.info(f"[{scan_id}] SAST found {len(sast_findings)} issues")
                 except Exception as e:
@@ -63,7 +65,9 @@ class ScanPipeline:
                 logger.info(f"[{scan_id}] Running SAST scan on {repo_url}")
                 try:
                     if callback_url:
-                        await self._send_status_callback(callback_url, analysis_id, "STATIC_ANALYSIS", scan_id)
+                        await self._send_status_callback(
+                            callback_url, analysis_id, "STATIC_ANALYSIS", scan_id
+                        )
                     sast_findings = self.sast_scanner.scan_repo(repo_url, branch)
                     logger.info(f"[{scan_id}] SAST found {len(sast_findings)} issues")
                 except Exception as e:
@@ -72,7 +76,9 @@ class ScanPipeline:
             # Step 2: DAST scan (if target_url provided)
             if target_url:
                 if callback_url:
-                    await self._send_status_callback(callback_url, analysis_id, "PENETRATION_TEST", scan_id)
+                    await self._send_status_callback(
+                        callback_url, analysis_id, "PENETRATION_TEST", scan_id
+                    )
                 logger.info(f"[{scan_id}] Running DAST scan on {target_url}")
                 try:
                     dast_findings = self.dast_scanner.run(target_url)
