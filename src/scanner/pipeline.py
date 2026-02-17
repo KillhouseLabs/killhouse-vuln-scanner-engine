@@ -112,9 +112,7 @@ class ScanPipeline:
 
             # Step 3: Building (handled by sandbox, scanner sends status only)
             if callback_url:
-                await self._send_status_callback(
-                    callback_url, analysis_id, "BUILDING", scan_id
-                )
+                await self._send_status_callback(callback_url, analysis_id, "BUILDING", scan_id)
 
             # Step 4: DAST scan
             if target_url:
@@ -135,9 +133,7 @@ class ScanPipeline:
                     step_results["dast"] = StepResult(status="failed", error=str(e))
                     logger.error(f"[{scan_id}] DAST failed: {e}")
             else:
-                step_results["dast"] = StepResult(
-                    status="skipped", error="No target URL provided"
-                )
+                step_results["dast"] = StepResult(status="skipped", error="No target URL provided")
 
             # Cleanup cloned repo if we cloned it (not local_path)
             if repo_path and not local_path:
@@ -156,9 +152,7 @@ class ScanPipeline:
 
             # Step 7: Send callback with step_results
             if callback_url:
-                await self._send_callback(
-                    callback_url, analysis_id, result, scan_id, step_results
-                )
+                await self._send_callback(callback_url, analysis_id, result, scan_id, step_results)
 
             # Update scan store
             scan_store[scan_id]["status"] = ScanStatus.COMPLETED
@@ -173,9 +167,7 @@ class ScanPipeline:
 
             # Send failure callback
             if callback_url:
-                await self._send_failure_callback(
-                    callback_url, analysis_id, str(e), step_results
-                )
+                await self._send_failure_callback(callback_url, analysis_id, str(e), step_results)
 
     async def _send_status_callback(
         self, callback_url: str, analysis_id: str, status: str, scan_id: str
