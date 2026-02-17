@@ -78,10 +78,10 @@ class SemgrepScanner:
                 )
 
             return self._parse_output(result.stdout, scan_dir)
-        except subprocess.TimeoutExpired:
-            raise ScannerTimeoutError("semgrep", self.timeout)
-        except FileNotFoundError:
-            raise ScannerNotFoundError("semgrep")
+        except subprocess.TimeoutExpired as e:
+            raise ScannerTimeoutError("semgrep", self.timeout) from e
+        except FileNotFoundError as e:
+            raise ScannerNotFoundError("semgrep") from e
         finally:
             shutil.rmtree(scan_dir, ignore_errors=True)
 

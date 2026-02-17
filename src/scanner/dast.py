@@ -43,10 +43,10 @@ class NucleiScanner:
                 )
 
             return self._parse_output(result.stdout)
-        except subprocess.TimeoutExpired:
-            raise ScannerTimeoutError("nuclei", self.timeout)
-        except FileNotFoundError:
-            raise ScannerNotFoundError("nuclei")
+        except subprocess.TimeoutExpired as e:
+            raise ScannerTimeoutError("nuclei", self.timeout) from e
+        except FileNotFoundError as e:
+            raise ScannerNotFoundError("nuclei") from e
 
     def _parse_output(self, raw_output: str) -> List[Finding]:
         """Parse Nuclei JSONL output into Finding objects"""
