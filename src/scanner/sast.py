@@ -8,6 +8,7 @@ import tempfile
 from pathlib import Path
 from typing import List
 
+from .exceptions import ScannerNotFoundError, ScannerTimeoutError
 from .models import Finding
 
 logger = logging.getLogger(__name__)
@@ -78,11 +79,9 @@ class SemgrepScanner:
 
             return self._parse_output(result.stdout, scan_dir)
         except subprocess.TimeoutExpired:
-            logger.error(f"Semgrep timed out after {self.timeout}s")
-            return []
+            raise ScannerTimeoutError("semgrep", self.timeout)
         except FileNotFoundError:
-            logger.error("Semgrep not found. Install with: pip install semgrep")
-            return []
+            raise ScannerNotFoundError("semgrep")
         finally:
             shutil.rmtree(scan_dir, ignore_errors=True)
 

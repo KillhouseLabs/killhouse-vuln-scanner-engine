@@ -2,20 +2,39 @@
 
 import logging
 import os
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from typing import Optional
+from typing import Dict, Optional
 
 import httpx
 
 from .aggregator import AggregatedResult, ResultAggregator
 from .dast import NucleiScanner
+from .exceptions import ScannerNotFoundError, ScannerTimeoutError
 from .sast import SemgrepScanner
 
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class StepResult:
+    """Result of a single pipeline step"""
+
+    status: str = "pending"  # "success" | "failed" | "skipped"
+    findings_count: int = 0
+    error: Optional[str] = None
+
+    def to_dict(self) -> dict:
+        result = {"status": self.status}
+        if self.findings_count > 0:
+            result["findings_count"] = self.findings_count
+        if self.error:
+            result["error"] = self.error
+        return result
+
+
 class ScanPipeline:
-    """Orchestrates the full scan pipeline"""
+    """Orchestrates the full scan pipeline with per-step state tracking"""
 
     def __init__(self):
         self.sast_scanner = SemgrepScanner()
@@ -33,7 +52,7 @@ class ScanPipeline:
         scan_store: dict,
         local_path: Optional[str] = None,
     ):
-        """Execute full scan pipeline"""
+        """Execute full scan pipeline with per-step state tracking"""
         from pathlib import Path
 
         from src.api.schemas import ScanStatus
@@ -43,61 +62,103 @@ class ScanPipeline:
 
         sast_findings = []
         dast_findings = []
+        step_results: Dict[str, StepResult] = {
+            "cloning": StepResult(),
+            "sast": StepResult(),
+            "building": StepResult(status="skipped"),
+            "dast": StepResult(),
+        }
 
         try:
-            # Step 1: Clone / SAST scan
+            # Step 1: Clone repository
+            repo_path = None
             if callback_url:
                 await self._send_status_callback(callback_url, analysis_id, "CLONING", scan_id)
 
             if local_path:
-                # Direct local path scan (no git clone needed)
-                logger.info(f"[{scan_id}] Running SAST scan on local path {local_path}")
-                try:
-                    if callback_url:
-                        await self._send_status_callback(
-                            callback_url, analysis_id, "STATIC_ANALYSIS", scan_id
-                        )
-                    sast_findings = self.sast_scanner.run(Path(local_path))
-                    logger.info(f"[{scan_id}] SAST found {len(sast_findings)} issues")
-                except Exception as e:
-                    logger.error(f"[{scan_id}] SAST local scan failed: {e}")
+                step_results["cloning"] = StepResult(status="success")
+                repo_path = Path(local_path)
             elif repo_url:
-                logger.info(f"[{scan_id}] Running SAST scan on {repo_url}")
                 try:
-                    if callback_url:
-                        await self._send_status_callback(
-                            callback_url, analysis_id, "STATIC_ANALYSIS", scan_id
-                        )
-                    sast_findings = self.sast_scanner.scan_repo(repo_url, branch)
-                    logger.info(f"[{scan_id}] SAST found {len(sast_findings)} issues")
+                    repo_path = self.sast_scanner.clone_repo(repo_url, branch)
+                    step_results["cloning"] = StepResult(status="success")
                 except Exception as e:
-                    logger.error(f"[{scan_id}] SAST scan failed: {e}")
+                    step_results["cloning"] = StepResult(status="failed", error=str(e))
+                    logger.error(f"[{scan_id}] Clone failed: {e}")
+            else:
+                step_results["cloning"] = StepResult(status="skipped", error="No repo URL provided")
 
-            # Step 2: DAST scan (if target_url provided)
+            # Step 2: SAST scan
+            if repo_path and step_results["cloning"].status == "success":
+                if callback_url:
+                    await self._send_status_callback(
+                        callback_url, analysis_id, "STATIC_ANALYSIS", scan_id
+                    )
+                try:
+                    sast_findings = self.sast_scanner.run(repo_path)
+                    step_results["sast"] = StepResult(
+                        status="success", findings_count=len(sast_findings)
+                    )
+                    logger.info(f"[{scan_id}] SAST found {len(sast_findings)} issues")
+                except (ScannerNotFoundError, ScannerTimeoutError) as e:
+                    step_results["sast"] = StepResult(status="failed", error=str(e))
+                    logger.error(f"[{scan_id}] SAST failed: {e}")
+                except Exception as e:
+                    step_results["sast"] = StepResult(status="failed", error=str(e))
+                    logger.error(f"[{scan_id}] SAST failed: {e}")
+            else:
+                reason = "Clone was skipped or failed"
+                step_results["sast"] = StepResult(status="skipped", error=reason)
+
+            # Step 3: Building (handled by sandbox, scanner sends status only)
+            if callback_url:
+                await self._send_status_callback(
+                    callback_url, analysis_id, "BUILDING", scan_id
+                )
+
+            # Step 4: DAST scan
             if target_url:
                 if callback_url:
                     await self._send_status_callback(
                         callback_url, analysis_id, "PENETRATION_TEST", scan_id
                     )
-                logger.info(f"[{scan_id}] Running DAST scan on {target_url}")
                 try:
                     dast_findings = self.dast_scanner.run(target_url)
+                    step_results["dast"] = StepResult(
+                        status="success", findings_count=len(dast_findings)
+                    )
                     logger.info(f"[{scan_id}] DAST found {len(dast_findings)} issues")
+                except (ScannerNotFoundError, ScannerTimeoutError) as e:
+                    step_results["dast"] = StepResult(status="failed", error=str(e))
+                    logger.error(f"[{scan_id}] DAST failed: {e}")
                 except Exception as e:
-                    logger.error(f"[{scan_id}] DAST scan failed: {e}")
+                    step_results["dast"] = StepResult(status="failed", error=str(e))
+                    logger.error(f"[{scan_id}] DAST failed: {e}")
+            else:
+                step_results["dast"] = StepResult(
+                    status="skipped", error="No target URL provided"
+                )
 
-            # Step 3: Aggregate results
+            # Cleanup cloned repo if we cloned it (not local_path)
+            if repo_path and not local_path:
+                import shutil
+
+                shutil.rmtree(repo_path, ignore_errors=True)
+
+            # Step 5: Aggregate results
             result = self.aggregator.aggregate(sast_findings, dast_findings)
 
-            # Step 4: Generate AI summaries
+            # Step 6: Generate AI summaries
             try:
                 result = await self.aggregator.generate_summaries(result)
             except Exception as e:
                 logger.error(f"[{scan_id}] AI summary generation failed: {e}")
 
-            # Step 5: Send callback
+            # Step 7: Send callback with step_results
             if callback_url:
-                await self._send_callback(callback_url, analysis_id, result, scan_id)
+                await self._send_callback(
+                    callback_url, analysis_id, result, scan_id, step_results
+                )
 
             # Update scan store
             scan_store[scan_id]["status"] = ScanStatus.COMPLETED
@@ -112,7 +173,9 @@ class ScanPipeline:
 
             # Send failure callback
             if callback_url:
-                await self._send_failure_callback(callback_url, analysis_id, str(e))
+                await self._send_failure_callback(
+                    callback_url, analysis_id, str(e), step_results
+                )
 
     async def _send_status_callback(
         self, callback_url: str, analysis_id: str, status: str, scan_id: str
@@ -140,6 +203,7 @@ class ScanPipeline:
         analysis_id: str,
         result: AggregatedResult,
         scan_id: str,
+        step_results: Dict[str, StepResult],
     ):
         """Send scan results to the callback URL"""
         # Build static analysis report from SAST findings
@@ -151,6 +215,7 @@ class ScanPipeline:
             "findings": [f.to_dict() for f in sast_findings],
             "total": len(sast_findings),
             "summary": result.sast_summary,
+            "step_result": step_results["sast"].to_dict(),
         }
 
         pentest_report = {
@@ -158,6 +223,7 @@ class ScanPipeline:
             "findings": [f.to_dict() for f in dast_findings],
             "total": len(dast_findings),
             "summary": result.dast_summary,
+            "step_result": step_results["dast"].to_dict(),
         }
 
         payload = {
@@ -170,6 +236,7 @@ class ScanPipeline:
             "high_count": result.high_count,
             "medium_count": result.medium_count,
             "low_count": result.low_count,
+            "step_results": {k: v.to_dict() for k, v in step_results.items()},
         }
 
         logger.info(f"[{scan_id}] Sending callback to {callback_url}")
@@ -193,12 +260,19 @@ class ScanPipeline:
         except Exception as e:
             logger.error(f"[{scan_id}] Failed to send callback: {e}")
 
-    async def _send_failure_callback(self, callback_url: str, analysis_id: str, error: str):
+    async def _send_failure_callback(
+        self,
+        callback_url: str,
+        analysis_id: str,
+        error: str,
+        step_results: Dict[str, StepResult],
+    ):
         """Send failure notification to callback URL"""
         payload = {
             "analysis_id": analysis_id,
             "status": "FAILED",
             "error": error,
+            "step_results": {k: v.to_dict() for k, v in step_results.items()},
         }
         try:
             async with httpx.AsyncClient(timeout=30) as client:

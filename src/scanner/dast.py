@@ -5,6 +5,7 @@ import logging
 import subprocess
 from typing import List
 
+from .exceptions import ScannerNotFoundError, ScannerTimeoutError
 from .models import Finding
 
 logger = logging.getLogger(__name__)
@@ -43,11 +44,9 @@ class NucleiScanner:
 
             return self._parse_output(result.stdout)
         except subprocess.TimeoutExpired:
-            logger.error(f"Nuclei timed out after {self.timeout}s")
-            return []
+            raise ScannerTimeoutError("nuclei", self.timeout)
         except FileNotFoundError:
-            logger.error("Nuclei not found. Install with: brew install nuclei")
-            return []
+            raise ScannerNotFoundError("nuclei")
 
     def _parse_output(self, raw_output: str) -> List[Finding]:
         """Parse Nuclei JSONL output into Finding objects"""
