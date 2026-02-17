@@ -3,7 +3,9 @@
 import json
 import logging
 import subprocess
-from typing import List
+from typing import List, Optional
+
+import docker
 
 from .exceptions import ScannerNotFoundError, ScannerTimeoutError
 from .models import Finding
@@ -17,9 +19,18 @@ class NucleiScanner:
     def __init__(self, timeout: int = 300):
         self.timeout = timeout  # seconds
 
-    def run(self, target_url: str) -> List[Finding]:
-        """Run Nuclei against a target URL and return findings"""
+    def run(self, target_url: str, network_name: Optional[str] = None) -> List[Finding]:
+        """Run Nuclei against a target URL and return findings.
+
+        If network_name is provided, connects the current container
+        to that Docker network before scanning, and disconnects after.
+        """
         logger.info(f"Running Nuclei scan on {target_url}")
+        connected = False
+
+        if network_name:
+            connected = self._connect_to_network(network_name)
+
         try:
             result = subprocess.run(
                 [
@@ -47,6 +58,38 @@ class NucleiScanner:
             raise ScannerTimeoutError("nuclei", self.timeout) from e
         except FileNotFoundError as e:
             raise ScannerNotFoundError("nuclei") from e
+        finally:
+            if connected and network_name:
+                self._disconnect_from_network(network_name)
+
+    def _connect_to_network(self, network_name: str) -> bool:
+        """Connect this container to the target Docker network."""
+        try:
+            client = docker.from_env()
+            network = client.networks.get(network_name)
+            # Get current container ID from /proc/self/cgroup or hostname
+            import socket
+
+            container_id = socket.gethostname()
+            network.connect(container_id)
+            logger.info(f"Connected to network {network_name}")
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to connect to network {network_name}: {e}")
+            return False
+
+    def _disconnect_from_network(self, network_name: str) -> None:
+        """Disconnect this container from the target Docker network."""
+        try:
+            client = docker.from_env()
+            network = client.networks.get(network_name)
+            import socket
+
+            container_id = socket.gethostname()
+            network.disconnect(container_id)
+            logger.info(f"Disconnected from network {network_name}")
+        except Exception as e:
+            logger.warning(f"Failed to disconnect from network {network_name}: {e}")
 
     def _parse_output(self, raw_output: str) -> List[Finding]:
         """Parse Nuclei JSONL output into Finding objects"""

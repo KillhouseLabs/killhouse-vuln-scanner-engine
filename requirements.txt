@@ -45,6 +45,7 @@ ruff==0.15.0
 pytest==7.4.3
 pytest-asyncio==0.21.1
 pytest-cov==4.1.0
+pytest-bdd==7.3.0
 
 # Reporting
 jinja2==3.1.2

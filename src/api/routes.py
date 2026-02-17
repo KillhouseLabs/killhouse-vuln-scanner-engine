@@ -39,6 +39,7 @@ async def _run_scan(scan_id: str, request: ScanRequest):
         callback_url=request.callback_url,
         local_path=request.local_path,
         scan_store=scan_store,
+        network_name=request.network_name,
     )
 
 

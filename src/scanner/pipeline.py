@@ -51,6 +51,7 @@ class ScanPipeline:
         callback_url: Optional[str],
         scan_store: dict,
         local_path: Optional[str] = None,
+        network_name: Optional[str] = None,
     ):
         """Execute full scan pipeline with per-step state tracking"""
         from pathlib import Path
@@ -121,7 +122,7 @@ class ScanPipeline:
                         callback_url, analysis_id, "PENETRATION_TEST", scan_id
                     )
                 try:
-                    dast_findings = self.dast_scanner.run(target_url)
+                    dast_findings = self.dast_scanner.run(target_url, network_name=network_name)
                     step_results["dast"] = StepResult(
                         status="success", findings_count=len(dast_findings)
                     )
@@ -218,9 +219,14 @@ class ScanPipeline:
             "step_result": step_results["dast"].to_dict(),
         }
 
+        has_failure = any(
+            sr.status == "failed" for sr in step_results.values()
+        )
+        final_status = "COMPLETED_WITH_ERRORS" if has_failure else "COMPLETED"
+
         payload = {
             "analysis_id": analysis_id,
-            "status": "COMPLETED",
+            "status": final_status,
             "static_analysis_report": static_report,
             "penetration_test_report": pentest_report,
             "vulnerabilities_found": result.total,

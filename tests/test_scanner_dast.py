@@ -111,3 +111,57 @@ class TestNucleiRun:
         mock_run.side_effect = FileNotFoundError("nuclei")
         with pytest.raises(ScannerNotFoundError, match="nuclei"):
             self.scanner.run("http://target:8080")
+
+
+class TestNucleiNetworkConnect:
+    """Tests for NucleiScanner Docker network connect/disconnect"""
+
+    def setup_method(self):
+        self.scanner = NucleiScanner(timeout=60)
+
+    @patch("src.scanner.dast.docker.from_env")
+    @patch("src.scanner.dast.subprocess.run")
+    def test_connects_to_network_before_scan(self, mock_run, mock_docker):
+        """Scanner connects to Docker network before running nuclei"""
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        mock_network = MagicMock()
+        mock_docker.return_value.networks.get.return_value = mock_network
+
+        self.scanner.run("http://target:8080", network_name="killhouse-test-123")
+
+        mock_docker.return_value.networks.get.assert_called_with("killhouse-test-123")
+        mock_network.connect.assert_called_once()
+
+    @patch("src.scanner.dast.docker.from_env")
+    @patch("src.scanner.dast.subprocess.run")
+    def test_disconnects_from_network_after_scan(self, mock_run, mock_docker):
+        """Scanner disconnects from Docker network after scan completes"""
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        mock_network = MagicMock()
+        mock_docker.return_value.networks.get.return_value = mock_network
+
+        self.scanner.run("http://target:8080", network_name="killhouse-test-123")
+
+        mock_network.disconnect.assert_called_once()
+
+    @patch("src.scanner.dast.subprocess.run")
+    def test_runs_without_network_when_none(self, mock_run):
+        """Scanner runs without network connect when network_name is None"""
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+        self.scanner.run("http://target:8080", network_name=None)
+
+        mock_run.assert_called_once()
+
+    @patch("src.scanner.dast.docker.from_env")
+    @patch("src.scanner.dast.subprocess.run")
+    def test_disconnects_even_on_scan_failure(self, mock_run, mock_docker):
+        """Network disconnect runs even if scan raises an exception"""
+        mock_run.side_effect = subprocess.TimeoutExpired(cmd="nuclei", timeout=60)
+        mock_network = MagicMock()
+        mock_docker.return_value.networks.get.return_value = mock_network
+
+        with pytest.raises(ScannerTimeoutError):
+            self.scanner.run("http://target:8080", network_name="killhouse-test-123")
+
+        mock_network.disconnect.assert_called_once()
