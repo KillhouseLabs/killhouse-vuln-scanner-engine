@@ -6,7 +6,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     curl \
     docker.io \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Semgrep
+RUN pip install --no-cache-dir semgrep
+
+# Install Nuclei
+RUN NUCLEI_VERSION=$(curl -sSfL https://api.github.com/repos/projectdiscovery/nuclei/releases/latest | grep tag_name | cut -d '"' -f 4 | sed 's/v//') \
+    && curl -sSfL "https://github.com/projectdiscovery/nuclei/releases/latest/download/nuclei_${NUCLEI_VERSION}_linux_amd64.zip" -o /tmp/nuclei.zip \
+    && unzip /tmp/nuclei.zip -d /usr/local/bin/ \
+    && rm /tmp/nuclei.zip \
+    && nuclei -update-templates
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
