@@ -4,7 +4,10 @@ import json
 import subprocess
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from src.scanner.dast import NucleiScanner
+from src.scanner.exceptions import ScannerNotFoundError, ScannerTimeoutError
 
 
 class TestNucleiParseOutput:
@@ -97,14 +100,14 @@ class TestNucleiRun:
 
     @patch("src.scanner.dast.subprocess.run")
     def test_run_timeout(self, mock_run):
-        """run() returns empty list on timeout"""
+        """run() raises ScannerTimeoutError on timeout"""
         mock_run.side_effect = subprocess.TimeoutExpired(cmd="nuclei", timeout=60)
-        findings = self.scanner.run("http://target:8080")
-        assert findings == []
+        with pytest.raises(ScannerTimeoutError, match="nuclei"):
+            self.scanner.run("http://target:8080")
 
     @patch("src.scanner.dast.subprocess.run")
     def test_run_not_found(self, mock_run):
-        """run() returns empty list when nuclei is not installed"""
+        """run() raises ScannerNotFoundError when nuclei is not installed"""
         mock_run.side_effect = FileNotFoundError("nuclei")
-        findings = self.scanner.run("http://target:8080")
-        assert findings == []
+        with pytest.raises(ScannerNotFoundError, match="nuclei"):
+            self.scanner.run("http://target:8080")

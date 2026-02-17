@@ -4,6 +4,9 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+from src.scanner.exceptions import ScannerNotFoundError, ScannerTimeoutError
 from src.scanner.sast import SemgrepScanner
 
 
@@ -81,23 +84,23 @@ class TestSemgrepRun:
     @patch("src.scanner.sast.shutil.rmtree")
     @patch("src.scanner.sast.tempfile.mkdtemp")
     def test_run_timeout(self, mock_mkdtemp, mock_rmtree, mock_copytree, mock_run):
-        """run() returns empty list on timeout"""
+        """run() raises ScannerTimeoutError on timeout"""
         import subprocess
 
         mock_mkdtemp.return_value = "/tmp/killhouse-scan-test"
         mock_run.side_effect = subprocess.TimeoutExpired(cmd="semgrep", timeout=60)
 
-        findings = self.scanner.run(Path("/tmp/repo"))
-        assert findings == []
+        with pytest.raises(ScannerTimeoutError, match="semgrep"):
+            self.scanner.run(Path("/tmp/repo"))
 
     @patch("src.scanner.sast.subprocess.run")
     @patch("src.scanner.sast.shutil.copytree")
     @patch("src.scanner.sast.shutil.rmtree")
     @patch("src.scanner.sast.tempfile.mkdtemp")
     def test_run_not_found(self, mock_mkdtemp, mock_rmtree, mock_copytree, mock_run):
-        """run() returns empty list when semgrep is not installed"""
+        """run() raises ScannerNotFoundError when semgrep is not installed"""
         mock_mkdtemp.return_value = "/tmp/killhouse-scan-test"
         mock_run.side_effect = FileNotFoundError("semgrep")
 
-        findings = self.scanner.run(Path("/tmp/repo"))
-        assert findings == []
+        with pytest.raises(ScannerNotFoundError, match="semgrep"):
+            self.scanner.run(Path("/tmp/repo"))
