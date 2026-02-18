@@ -32,9 +32,7 @@ class NucleiScanner:
         if network_name:
             connected = self._connect_to_network(network_name)
             if not connected:
-                raise RuntimeError(
-                    f"Failed to connect to Docker network '{network_name}'"
-                )
+                raise RuntimeError(f"Failed to connect to Docker network '{network_name}'")
 
         try:
             result = subprocess.run(

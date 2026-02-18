@@ -52,9 +52,7 @@ class ScanPipeline:
             while elapsed < timeout:
                 try:
                     response = await client.get(target_url)
-                    logger.info(
-                        f"[{scan_id}] Target reachable: HTTP {response.status_code}"
-                    )
+                    logger.info(f"[{scan_id}] Target reachable: HTTP {response.status_code}")
                     return True
                 except (httpx.ConnectError, httpx.TimeoutException, httpx.RemoteProtocolError):
                     pass
@@ -154,9 +152,7 @@ class ScanPipeline:
                     logger.error(f"[{scan_id}] DAST skipped: target not reachable")
                 else:
                     try:
-                        dast_findings = self.dast_scanner.run(
-                            target_url, network_name=network_name
-                        )
+                        dast_findings = self.dast_scanner.run(target_url, network_name=network_name)
 
                         # Verify: if 0 findings, check target is still reachable
                         if len(dast_findings) == 0:
@@ -168,9 +164,7 @@ class ScanPipeline:
                                     status="failed",
                                     error="Target became unreachable during scan",
                                 )
-                                logger.error(
-                                    f"[{scan_id}] DAST: 0 findings and target unreachable"
-                                )
+                                logger.error(f"[{scan_id}] DAST: 0 findings and target unreachable")
                             else:
                                 step_results["dast"] = StepResult(
                                     status="success", findings_count=0
@@ -180,9 +174,7 @@ class ScanPipeline:
                             step_results["dast"] = StepResult(
                                 status="success", findings_count=len(dast_findings)
                             )
-                            logger.info(
-                                f"[{scan_id}] DAST found {len(dast_findings)} issues"
-                            )
+                            logger.info(f"[{scan_id}] DAST found {len(dast_findings)} issues")
                     except (ScannerNotFoundError, ScannerTimeoutError) as e:
                         step_results["dast"] = StepResult(status="failed", error=str(e))
                         logger.error(f"[{scan_id}] DAST failed: {e}")
@@ -221,8 +213,7 @@ class ScanPipeline:
             # Step 8: Send callback with step_results
             if callback_url:
                 await self._send_callback(
-                    callback_url, analysis_id, result, scan_id,
-                    step_results, exploit_session_id
+                    callback_url, analysis_id, result, scan_id, step_results, exploit_session_id
                 )
 
             # Update scan store
@@ -295,12 +286,18 @@ class ScanPipeline:
 
             # Map CWE to vulnerability type
             cwe_mapping = {
-                "CWE-89": "sql_injection", "CWE-79": "xss",
-                "CWE-78": "command_injection", "CWE-77": "command_injection",
-                "CWE-22": "path_traversal", "CWE-918": "ssrf",
-                "CWE-287": "auth_bypass", "CWE-306": "auth_bypass",
-                "CWE-502": "deserialization", "CWE-611": "xxe",
-                "CWE-94": "rce", "CWE-96": "rce",
+                "CWE-89": "sql_injection",
+                "CWE-79": "xss",
+                "CWE-78": "command_injection",
+                "CWE-77": "command_injection",
+                "CWE-22": "path_traversal",
+                "CWE-918": "ssrf",
+                "CWE-287": "auth_bypass",
+                "CWE-306": "auth_bypass",
+                "CWE-502": "deserialization",
+                "CWE-611": "xxe",
+                "CWE-94": "rce",
+                "CWE-96": "rce",
             }
             if f.cwe and f.cwe in cwe_mapping:
                 vuln["type"] = cwe_mapping[f.cwe]
@@ -326,9 +323,7 @@ class ScanPipeline:
                 if response.status_code == 200:
                     data = response.json()
                     session_id = data.get("session_id")
-                    logger.info(
-                        f"[{scan_id}] Exploit session started: {session_id}"
-                    )
+                    logger.info(f"[{scan_id}] Exploit session started: {session_id}")
                     return session_id
                 else:
                     logger.warning(
