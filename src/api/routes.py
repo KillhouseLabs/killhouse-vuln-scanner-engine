@@ -7,9 +7,8 @@ from uuid import uuid4
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 
-from src.scanner.pipeline import ScanPipeline
-
 from src.scanner.fix_generator import FixGenerator
+from src.scanner.pipeline import ScanPipeline
 
 from .schemas import (
     FixSuggestionRequest,
@@ -136,11 +135,11 @@ async def fix_suggestion(request: FixSuggestionRequest):
             cwe=request.cwe,
             description=request.description,
         )
-    except RuntimeError:
+    except RuntimeError as err:
         raise HTTPException(
             status_code=503,
             detail="OpenAI API key is not configured",
-        )
+        ) from err
 
     return FixSuggestionResponse(
         explanation=result["explanation"],

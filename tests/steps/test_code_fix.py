@@ -1,10 +1,10 @@
 """BDD step definitions for code fix suggestion feature"""
 
-import json
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
-from pytest_bdd import given, parsers, scenario, then, when
+from pytest_bdd import given, scenario, then, when
 
 from src.api.app import app
 
@@ -30,9 +30,6 @@ class FixContext:
         self.payload = {}
         self.response = None
         self.mock_patcher = None
-
-
-import pytest
 
 
 @pytest.fixture
@@ -79,8 +76,8 @@ def no_api_key(fix_context):
 def request_fix_suggestion(fix_context):
     if fix_context.payload.get("severity") == "LOW" and "rule" not in fix_context.payload:
         # No API key scenario
-        with patch("src.api.routes.FixGenerator") as MockGenerator:
-            mock_instance = MockGenerator.return_value
+        with patch("src.api.routes.FixGenerator") as mock_generator:
+            mock_instance = mock_generator.return_value
             mock_instance.generate_fix = AsyncMock(
                 side_effect=RuntimeError("OpenAI API key is not configured")
             )
@@ -89,8 +86,8 @@ def request_fix_suggestion(fix_context):
             )
     else:
         # Success scenario
-        with patch("src.api.routes.FixGenerator") as MockGenerator:
-            mock_instance = MockGenerator.return_value
+        with patch("src.api.routes.FixGenerator") as mock_generator:
+            mock_instance = mock_generator.return_value
             mock_instance.generate_fix = AsyncMock(
                 return_value={
                     "explanation": "SQL 인젝션 취약점을 파라미터화된 쿼리로 수정했습니다.",

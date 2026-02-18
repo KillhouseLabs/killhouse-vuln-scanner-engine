@@ -57,9 +57,7 @@ class TestFixGenerator:
         mock_response.choices = [
             MagicMock(
                 message=MagicMock(
-                    content=json.dumps(
-                        {"explanation": "fix applied", "fixed_code": "safe_code()"}
-                    )
+                    content=json.dumps({"explanation": "fix applied", "fixed_code": "safe_code()"})
                 )
             )
         ]
@@ -89,7 +87,6 @@ class TestFixGenerator:
     @pytest.mark.asyncio
     async def test_generate_fix_without_api_key_raises_error(self):
         """API 키가 없으면 RuntimeError를 발생시킨다"""
-        generator = FixGenerator(openai_api_key=None)
         # Ensure env fallback is also None
         with patch.dict("os.environ", {}, clear=True):
             generator_no_key = FixGenerator(openai_api_key=None)
@@ -109,9 +106,7 @@ class TestFixGenerator:
     async def test_generate_fix_handles_missing_fields(self):
         """OpenAI 응답에 필드가 누락되어도 빈 문자열로 처리한다"""
         mock_response = MagicMock()
-        mock_response.choices = [
-            MagicMock(message=MagicMock(content=json.dumps({})))
-        ]
+        mock_response.choices = [MagicMock(message=MagicMock(content=json.dumps({})))]
 
         with patch.object(
             self.generator.client.chat.completions,
@@ -145,9 +140,9 @@ class TestFixSuggestionAPI:
         return TestClient(app)
 
     @patch("src.api.routes.FixGenerator")
-    def test_fix_suggestion_success(self, MockGenerator, client):
+    def test_fix_suggestion_success(self, mock_generator, client):
         """POST /api/fix-suggestion returns explanation and fixed_code"""
-        mock_instance = MockGenerator.return_value
+        mock_instance = mock_generator.return_value
         mock_instance.generate_fix = AsyncMock(
             return_value={
                 "explanation": "취약점 수정됨",
@@ -172,9 +167,9 @@ class TestFixSuggestionAPI:
         assert data["fixed_code"] == "safe_code()"
 
     @patch("src.api.routes.FixGenerator")
-    def test_fix_suggestion_no_api_key(self, MockGenerator, client):
+    def test_fix_suggestion_no_api_key(self, mock_generator, client):
         """POST /api/fix-suggestion returns 503 when API key is missing"""
-        mock_instance = MockGenerator.return_value
+        mock_instance = mock_generator.return_value
         mock_instance.generate_fix = AsyncMock(
             side_effect=RuntimeError("OpenAI API key is not configured")
         )
