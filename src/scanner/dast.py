@@ -24,12 +24,17 @@ class NucleiScanner:
 
         If network_name is provided, connects the current container
         to that Docker network before scanning, and disconnects after.
+        Raises RuntimeError if network connection fails.
         """
         logger.info(f"Running Nuclei scan on {target_url}")
         connected = False
 
         if network_name:
             connected = self._connect_to_network(network_name)
+            if not connected:
+                raise RuntimeError(
+                    f"Failed to connect to Docker network '{network_name}'"
+                )
 
         try:
             result = subprocess.run(

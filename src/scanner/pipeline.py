@@ -1,5 +1,6 @@
 """Scan pipeline orchestrating SAST, DAST, aggregation, and callback"""
 
+import asyncio
 import logging
 import os
 from dataclasses import dataclass
@@ -40,6 +41,27 @@ class ScanPipeline:
         self.sast_scanner = SemgrepScanner()
         self.dast_scanner = NucleiScanner()
         self.aggregator = ResultAggregator(openai_api_key=os.getenv("OPENAI_API_KEY"))
+
+    async def _wait_for_target(
+        self, target_url: str, scan_id: str, timeout: int = 120, interval: int = 3
+    ) -> bool:
+        """Wait for target to become reachable before DAST scan."""
+        logger.info(f"[{scan_id}] Waiting for target {target_url} to become reachable")
+        elapsed = 0
+        async with httpx.AsyncClient(timeout=5, follow_redirects=True) as client:
+            while elapsed < timeout:
+                try:
+                    response = await client.get(target_url)
+                    logger.info(
+                        f"[{scan_id}] Target reachable: HTTP {response.status_code}"
+                    )
+                    return True
+                except (httpx.ConnectError, httpx.TimeoutException, httpx.RemoteProtocolError):
+                    pass
+                await asyncio.sleep(interval)
+                elapsed += interval
+        logger.error(f"[{scan_id}] Target not reachable after {timeout}s")
+        return False
 
     async def run(
         self,
@@ -121,18 +143,52 @@ class ScanPipeline:
                     await self._send_status_callback(
                         callback_url, analysis_id, "PENETRATION_TEST", scan_id
                     )
-                try:
-                    dast_findings = self.dast_scanner.run(target_url, network_name=network_name)
+
+                # Healthcheck: wait for target to become reachable
+                target_ready = await self._wait_for_target(target_url, scan_id)
+                if not target_ready:
                     step_results["dast"] = StepResult(
-                        status="success", findings_count=len(dast_findings)
+                        status="failed",
+                        error="Target not reachable after 120s healthcheck timeout",
                     )
-                    logger.info(f"[{scan_id}] DAST found {len(dast_findings)} issues")
-                except (ScannerNotFoundError, ScannerTimeoutError) as e:
-                    step_results["dast"] = StepResult(status="failed", error=str(e))
-                    logger.error(f"[{scan_id}] DAST failed: {e}")
-                except Exception as e:
-                    step_results["dast"] = StepResult(status="failed", error=str(e))
-                    logger.error(f"[{scan_id}] DAST failed: {e}")
+                    logger.error(f"[{scan_id}] DAST skipped: target not reachable")
+                else:
+                    try:
+                        dast_findings = self.dast_scanner.run(
+                            target_url, network_name=network_name
+                        )
+
+                        # Verify: if 0 findings, check target is still reachable
+                        if len(dast_findings) == 0:
+                            still_reachable = await self._wait_for_target(
+                                target_url, scan_id, timeout=10, interval=2
+                            )
+                            if not still_reachable:
+                                step_results["dast"] = StepResult(
+                                    status="failed",
+                                    error="Target became unreachable during scan",
+                                )
+                                logger.error(
+                                    f"[{scan_id}] DAST: 0 findings and target unreachable"
+                                )
+                            else:
+                                step_results["dast"] = StepResult(
+                                    status="success", findings_count=0
+                                )
+                                logger.info(f"[{scan_id}] DAST found 0 issues (target OK)")
+                        else:
+                            step_results["dast"] = StepResult(
+                                status="success", findings_count=len(dast_findings)
+                            )
+                            logger.info(
+                                f"[{scan_id}] DAST found {len(dast_findings)} issues"
+                            )
+                    except (ScannerNotFoundError, ScannerTimeoutError) as e:
+                        step_results["dast"] = StepResult(status="failed", error=str(e))
+                        logger.error(f"[{scan_id}] DAST failed: {e}")
+                    except Exception as e:
+                        step_results["dast"] = StepResult(status="failed", error=str(e))
+                        logger.error(f"[{scan_id}] DAST failed: {e}")
             else:
                 step_results["dast"] = StepResult(status="skipped", error="No target URL provided")
 
@@ -151,9 +207,23 @@ class ScanPipeline:
             except Exception as e:
                 logger.error(f"[{scan_id}] AI summary generation failed: {e}")
 
-            # Step 7: Send callback with step_results
+            # Step 7: Exploit verification (if findings exist and target is available)
+            exploit_session_id = None
+            if target_url and result.total > 0:
+                if callback_url:
+                    await self._send_status_callback(
+                        callback_url, analysis_id, "EXPLOIT_VERIFICATION", scan_id
+                    )
+                exploit_session_id = await self._call_exploit_agent(
+                    scan_id, analysis_id, target_url, result, network_name
+                )
+
+            # Step 8: Send callback with step_results
             if callback_url:
-                await self._send_callback(callback_url, analysis_id, result, scan_id, step_results)
+                await self._send_callback(
+                    callback_url, analysis_id, result, scan_id,
+                    step_results, exploit_session_id
+                )
 
             # Update scan store
             scan_store[scan_id]["status"] = ScanStatus.COMPLETED
@@ -190,6 +260,86 @@ class ScanPipeline:
         except Exception as e:
             logger.warning(f"[{scan_id}] Status callback failed (non-fatal): {e}")
 
+    async def _call_exploit_agent(
+        self,
+        scan_id: str,
+        analysis_id: str,
+        target_url: str,
+        result: AggregatedResult,
+        network_name: Optional[str] = None,
+    ) -> Optional[str]:
+        """Call exploit-agent to start a penetration test session. Returns session_id or None."""
+        exploit_agent_url = os.getenv("EXPLOIT_AGENT_URL")
+        if not exploit_agent_url:
+            logger.info(f"[{scan_id}] EXPLOIT_AGENT_URL not set, skipping exploit verification")
+            return None
+
+        # Translate findings to exploit-agent Vulnerability format
+        vulnerabilities = []
+        for f in result.findings:
+            vuln = {
+                "type": "rce",  # default, will be overridden by translator on agent side
+                "location": f.url or f.file_path or "/",
+                "method": "GET",
+                "analysis_context": {
+                    "source": f.type,
+                    "tool": f.tool,
+                    "severity": f.severity,
+                    "cwe_id": f.cwe,
+                    "title": f.title,
+                    "matched_url": f.url,
+                    "description": f.description,
+                    "reference": f.reference,
+                },
+            }
+
+            # Map CWE to vulnerability type
+            cwe_mapping = {
+                "CWE-89": "sql_injection", "CWE-79": "xss",
+                "CWE-78": "command_injection", "CWE-77": "command_injection",
+                "CWE-22": "path_traversal", "CWE-918": "ssrf",
+                "CWE-287": "auth_bypass", "CWE-306": "auth_bypass",
+                "CWE-502": "deserialization", "CWE-611": "xxe",
+                "CWE-94": "rce", "CWE-96": "rce",
+            }
+            if f.cwe and f.cwe in cwe_mapping:
+                vuln["type"] = cwe_mapping[f.cwe]
+
+            vulnerabilities.append(vuln)
+
+        if not vulnerabilities:
+            return None
+
+        payload = {
+            "analysis_id": analysis_id,
+            "target_url": target_url,
+            "vulnerabilities": vulnerabilities,
+            "max_attempts": 10,
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.post(
+                    f"{exploit_agent_url}/api/sessions",
+                    json=payload,
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    session_id = data.get("session_id")
+                    logger.info(
+                        f"[{scan_id}] Exploit session started: {session_id}"
+                    )
+                    return session_id
+                else:
+                    logger.warning(
+                        f"[{scan_id}] Exploit agent returned {response.status_code}: "
+                        f"{response.text[:200]}"
+                    )
+        except Exception as e:
+            logger.error(f"[{scan_id}] Failed to call exploit agent: {e}")
+
+        return None
+
     async def _send_callback(
         self,
         callback_url: str,
@@ -197,6 +347,7 @@ class ScanPipeline:
         result: AggregatedResult,
         scan_id: str,
         step_results: Dict[str, StepResult],
+        exploit_session_id: Optional[str] = None,
     ):
         """Send scan results to the callback URL"""
         # Build static analysis report from SAST findings
@@ -227,6 +378,8 @@ class ScanPipeline:
             "status": final_status,
             "static_analysis_report": static_report,
             "penetration_test_report": pentest_report,
+            "executive_summary": result.executive_summary,
+            "exploit_session_id": exploit_session_id,
             "vulnerabilities_found": result.total,
             "critical_count": result.critical_count,
             "high_count": result.high_count,
