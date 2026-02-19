@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 
+from src.policy import fetch_policy, get_plan_limits
 from src.scanner.fix_generator import FixGenerator
 from src.scanner.pipeline import ScanPipeline
 
@@ -61,6 +62,21 @@ async def create_scan(
     Returns:
         ScanResponse with scan_id and ACCEPTED status
     """
+    # Check concurrency limit
+    policy = fetch_policy()
+    limits = get_plan_limits(policy, request.plan_id)
+
+    active_scans = sum(
+        1 for s in scan_store.values()
+        if s["status"] in (ScanStatus.ACCEPTED, ScanStatus.SCANNING)
+    )
+
+    if active_scans >= limits.max_concurrent_scans:
+        raise HTTPException(
+            status_code=429,
+            detail=f"동시 스캔 수 제한({limits.max_concurrent_scans}개)에 도달했습니다.",
+        )
+
     scan_id = str(uuid4())[:8]
 
     logger.info(f"Creating scan {scan_id} for analysis {request.analysis_id}")
