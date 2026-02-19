@@ -142,45 +142,62 @@ class ScanPipeline:
                         callback_url, analysis_id, "PENETRATION_TEST", scan_id
                     )
 
-                # Healthcheck: wait for target to become reachable
-                target_ready = await self._wait_for_target(target_url, scan_id)
-                if not target_ready:
-                    step_results["dast"] = StepResult(
-                        status="failed",
-                        error="Target not reachable after 120s healthcheck timeout",
-                    )
-                    logger.error(f"[{scan_id}] DAST skipped: target not reachable")
-                else:
-                    try:
-                        dast_findings = self.dast_scanner.run(target_url, network_name=network_name)
+                # Join target network BEFORE healthcheck so internal hostnames resolve
+                network_connected = False
+                if network_name:
+                    network_connected = self.dast_scanner._connect_to_network(network_name)
+                    if not network_connected:
+                        step_results["dast"] = StepResult(
+                            status="failed",
+                            error=f"Failed to connect to Docker network '{network_name}'",
+                        )
+                        logger.error(f"[{scan_id}] DAST: cannot connect to network {network_name}")
 
-                        # Verify: if 0 findings, check target is still reachable
-                        if len(dast_findings) == 0:
-                            still_reachable = await self._wait_for_target(
-                                target_url, scan_id, timeout=10, interval=2
-                            )
-                            if not still_reachable:
-                                step_results["dast"] = StepResult(
-                                    status="failed",
-                                    error="Target became unreachable during scan",
+                if not network_name or network_connected:
+                    # Healthcheck: wait for target to become reachable
+                    target_ready = await self._wait_for_target(target_url, scan_id)
+                    if not target_ready:
+                        step_results["dast"] = StepResult(
+                            status="failed",
+                            error="Target not reachable after 120s healthcheck timeout",
+                        )
+                        logger.error(f"[{scan_id}] DAST skipped: target not reachable")
+                    else:
+                        try:
+                            # Pass network_name=None since we already connected
+                            dast_findings = self.dast_scanner.run(target_url, network_name=None)
+
+                            # Verify: if 0 findings, check target is still reachable
+                            if len(dast_findings) == 0:
+                                still_reachable = await self._wait_for_target(
+                                    target_url, scan_id, timeout=10, interval=2
                                 )
-                                logger.error(f"[{scan_id}] DAST: 0 findings and target unreachable")
+                                if not still_reachable:
+                                    step_results["dast"] = StepResult(
+                                        status="failed",
+                                        error="Target became unreachable during scan",
+                                    )
+                                    logger.error(f"[{scan_id}] DAST: 0 findings and target unreachable")
+                                else:
+                                    step_results["dast"] = StepResult(
+                                        status="success", findings_count=0
+                                    )
+                                    logger.info(f"[{scan_id}] DAST found 0 issues (target OK)")
                             else:
                                 step_results["dast"] = StepResult(
-                                    status="success", findings_count=0
+                                    status="success", findings_count=len(dast_findings)
                                 )
-                                logger.info(f"[{scan_id}] DAST found 0 issues (target OK)")
-                        else:
-                            step_results["dast"] = StepResult(
-                                status="success", findings_count=len(dast_findings)
-                            )
-                            logger.info(f"[{scan_id}] DAST found {len(dast_findings)} issues")
-                    except (ScannerNotFoundError, ScannerTimeoutError) as e:
-                        step_results["dast"] = StepResult(status="failed", error=str(e))
-                        logger.error(f"[{scan_id}] DAST failed: {e}")
-                    except Exception as e:
-                        step_results["dast"] = StepResult(status="failed", error=str(e))
-                        logger.error(f"[{scan_id}] DAST failed: {e}")
+                                logger.info(f"[{scan_id}] DAST found {len(dast_findings)} issues")
+                        except (ScannerNotFoundError, ScannerTimeoutError) as e:
+                            step_results["dast"] = StepResult(status="failed", error=str(e))
+                            logger.error(f"[{scan_id}] DAST failed: {e}")
+                        except Exception as e:
+                            step_results["dast"] = StepResult(status="failed", error=str(e))
+                            logger.error(f"[{scan_id}] DAST failed: {e}")
+
+                # Disconnect from network after all DAST work
+                if network_connected and network_name:
+                    self.dast_scanner._disconnect_from_network(network_name)
             else:
                 step_results["dast"] = StepResult(status="skipped", error="No target URL provided")
 
