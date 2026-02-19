@@ -1,6 +1,5 @@
 import pytest
 
-from ..models import PlanConfig, PlanLimits, Policy, SubscriptionStatus
 from ..functions import (
     DEFAULT_FREE_LIMITS,
     can_perform_action,
@@ -8,6 +7,7 @@ from ..functions import (
     is_active_status,
     is_unlimited,
 )
+from ..models import PlanConfig, PlanLimits, Policy, SubscriptionStatus
 
 
 @pytest.fixture
