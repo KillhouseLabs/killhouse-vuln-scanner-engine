@@ -26,6 +26,7 @@ class ScanRequest(BaseModel):
     callback_url: Optional[str] = None
     local_path: Optional[str] = None  # Direct local path for SAST (skips git clone)
     network_name: Optional[str] = None  # Docker network for DAST target connectivity
+    plan_id: str = "free"  # Subscription plan for concurrency limits
 
 
 class ScanResponse(BaseModel):
