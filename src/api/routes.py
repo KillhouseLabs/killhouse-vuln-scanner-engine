@@ -67,8 +67,7 @@ async def create_scan(
     limits = get_plan_limits(policy, request.plan_id)
 
     active_scans = sum(
-        1 for s in scan_store.values()
-        if s["status"] in (ScanStatus.ACCEPTED, ScanStatus.SCANNING)
+        1 for s in scan_store.values() if s["status"] in (ScanStatus.ACCEPTED, ScanStatus.SCANNING)
     )
 
     if active_scans >= limits.max_concurrent_scans:

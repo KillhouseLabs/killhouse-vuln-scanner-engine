@@ -177,7 +177,9 @@ class ScanPipeline:
                                         status="failed",
                                         error="Target became unreachable during scan",
                                     )
-                                    logger.error(f"[{scan_id}] DAST: 0 findings and target unreachable")
+                                    logger.error(
+                                        f"[{scan_id}] DAST: 0 findings and target unreachable"
+                                    )
                                 else:
                                     step_results["dast"] = StepResult(
                                         status="success", findings_count=0
