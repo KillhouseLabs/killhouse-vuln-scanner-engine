@@ -399,6 +399,7 @@ class ScanPipeline:
             "high_count": result.high_count,
             "medium_count": result.medium_count,
             "low_count": result.low_count,
+            "info_count": result.info_count,
             "step_results": {k: v.to_dict() for k, v in step_results.items()},
         }
 
