@@ -1,8 +1,10 @@
 """Tests for executive summary prompt neutrality (Phase 1-B)"""
 
 from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from src.scanner.aggregator import ResultAggregator, AggregatedResult
+
+from src.scanner.aggregator import AggregatedResult, ResultAggregator
 
 
 class TestExecutiveSummaryPrompt:

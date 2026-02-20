@@ -7,8 +7,6 @@ from uuid import uuid4
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 
-logger = logging.getLogger(__name__)
-
 from src.policy import fetch_policy, get_plan_limits
 from src.scanner.fix_generator import FixGenerator
 from src.scanner.pipeline import ScanPipeline
