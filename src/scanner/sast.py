@@ -4,6 +4,7 @@ import json
 import logging
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import List
@@ -12,6 +13,17 @@ from .exceptions import ScannerNotFoundError, ScannerTimeoutError
 from .models import Finding
 
 logger = logging.getLogger(__name__)
+
+
+def _find_semgrep() -> str:
+    """Find semgrep binary: venv bin first, then system PATH."""
+    venv_bin = Path(sys.prefix) / "bin" / "semgrep"
+    if venv_bin.exists():
+        return str(venv_bin)
+    system_path = shutil.which("semgrep")
+    if system_path:
+        return system_path
+    return "semgrep"
 
 
 class SemgrepScanner:
@@ -58,7 +70,7 @@ class SemgrepScanner:
 
             result = subprocess.run(
                 [
-                    "semgrep",
+                    _find_semgrep(),
                     "scan",
                     "--config",
                     "auto",

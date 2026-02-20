@@ -160,7 +160,7 @@ class ResultAggregator:
 
     async def _generate_executive(self, result: AggregatedResult) -> str:
         """Generate executive summary"""
-        prompt = f"""보안 스캔 경영진 요약을 작성해주세요.
+        prompt = f"""보안 스캔 요약을 작성해주세요.
 
 스캔 결과:
 - 총 발견사항: {result.total}개
@@ -172,7 +172,7 @@ class ResultAggregator:
 SAST 요약: {result.sast_summary or "해당 없음"}
 DAST 요약: {result.dast_summary or "해당 없음"}
 
-경영진 요약에 포함할 내용:
+요약에 포함할 내용:
 1. 전반적인 보안 위험 수준 (상/중/하)
 2. 즉시 조치가 필요한 사항
 3. 단기/중기 보안 개선 권고"""
@@ -183,7 +183,7 @@ DAST 요약: {result.dast_summary or "해당 없음"}
                 messages=[
                     {
                         "role": "system",
-                        "content": "보안 CISO로서 경영진에게 보안 스캔 결과를 보고합니다. 한국어로 작성하며, 비기술적 용어를 사용합니다.",
+                        "content": "보안 전문가로서 보안 스캔 결과를 요약합니다. 한국어로 작성하며, 특정 조직이나 대상을 언급하지 않습니다.",
                     },
                     {"role": "user", "content": prompt},
                 ],

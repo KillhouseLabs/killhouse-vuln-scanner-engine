@@ -155,6 +155,12 @@ async def fix_suggestion(request: FixSuggestionRequest):
             status_code=503,
             detail="OpenAI API key is not configured",
         ) from err
+    except Exception as err:
+        logger.error("Fix suggestion generation failed: %s", err)
+        raise HTTPException(
+            status_code=502,
+            detail=f"AI 코드 수정 생성 실패: {type(err).__name__}",
+        ) from err
 
     return FixSuggestionResponse(
         explanation=result["explanation"],
