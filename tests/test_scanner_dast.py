@@ -77,6 +77,62 @@ class TestNucleiParseOutput:
         assert findings[0].reference == "https://example.com"
 
 
+class TestNucleiRunRawOutput:
+    """Tests for NucleiScanner.run returning raw output alongside findings"""
+
+    def setup_method(self):
+        self.scanner = NucleiScanner(timeout=60)
+
+    @patch("src.scanner.dast.subprocess.run")
+    def test_run_returns_tuple_with_findings_and_output(self, mock_run):
+        """run() returns (findings, raw_output) tuple"""
+        nuclei_stderr = (
+            "[INF] nuclei-engine v3.1.0\n[INF] Templates loaded: 500\n[INF] Targets loaded: 1\n"
+        )
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout="",
+            stderr=nuclei_stderr,
+        )
+
+        result = self.scanner.run("http://target:8080")
+
+        assert isinstance(result, tuple)
+        assert len(result) == 2
+        findings, raw_output = result
+        assert findings == []
+        assert "Templates loaded" in raw_output
+
+    @patch("src.scanner.dast.subprocess.run")
+    def test_run_does_not_use_silent_flag(self, mock_run):
+        """run() does not pass -silent flag to nuclei (allows raw output)"""
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout="",
+            stderr="",
+        )
+
+        self.scanner.run("http://target:8080")
+
+        args = mock_run.call_args[0][0]
+        assert "-silent" not in args
+
+    @patch("src.scanner.dast.subprocess.run")
+    def test_run_captures_nuclei_progress_from_stderr(self, mock_run):
+        """run() captures nuclei scan progress from stderr"""
+        nuclei_stderr = "[INF] Running httpx on input host\n[INF] Found 3 results in 5.2s\n"
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout="",
+            stderr=nuclei_stderr,
+        )
+
+        _, raw_output = self.scanner.run("http://target:8080")
+
+        assert "Running httpx" in raw_output
+        assert "Found 3 results" in raw_output
+
+
 class TestNucleiRun:
     """Tests for NucleiScanner.run with subprocess mocking"""
 
@@ -91,7 +147,7 @@ class TestNucleiRun:
             stdout="",
             stderr="",
         )
-        findings = self.scanner.run("http://target:8080")
+        findings, _ = self.scanner.run("http://target:8080")
         assert findings == []
         mock_run.assert_called_once()
         args = mock_run.call_args[0][0]
