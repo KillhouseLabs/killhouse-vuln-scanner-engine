@@ -3,7 +3,7 @@
 import json
 import logging
 import subprocess
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import docker
 
@@ -19,12 +19,15 @@ class NucleiScanner:
     def __init__(self, timeout: int = 300):
         self.timeout = timeout  # seconds
 
-    def run(self, target_url: str, network_name: Optional[str] = None) -> List[Finding]:
-        """Run Nuclei against a target URL and return findings.
+    def run(self, target_url: str, network_name: Optional[str] = None) -> Tuple[List[Finding], str]:
+        """Run Nuclei against a target URL and return findings with raw output.
 
         If network_name is provided, connects the current container
         to that Docker network before scanning, and disconnects after.
         Raises RuntimeError if network connection fails.
+
+        Returns:
+            Tuple of (findings, raw_output) where raw_output is nuclei's stderr.
         """
         logger.info(f"Running Nuclei scan on {target_url}")
         connected = False
@@ -41,7 +44,6 @@ class NucleiScanner:
                     "-u",
                     target_url,
                     "-jsonl",
-                    "-silent",
                     "-severity",
                     "low,medium,high,critical",
                     "-timeout",
@@ -56,7 +58,8 @@ class NucleiScanner:
                     f"Nuclei exited with code {result.returncode}: {result.stderr[:500]}"
                 )
 
-            return self._parse_output(result.stdout)
+            findings = self._parse_output(result.stdout)
+            return findings, result.stderr
         except subprocess.TimeoutExpired as e:
             raise ScannerTimeoutError("nuclei", self.timeout) from e
         except FileNotFoundError as e:

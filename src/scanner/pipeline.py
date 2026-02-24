@@ -101,11 +101,27 @@ class ScanPipeline:
                 repo_path = Path(local_path)
             elif repo_url:
                 try:
-                    repo_path = self.sast_scanner.clone_repo(repo_url, branch)
+                    repo_path, clone_output = self.sast_scanner.clone_repo(repo_url, branch)
                     step_results["cloning"] = StepResult(status="success")
+                    if callback_url:
+                        await self._send_log_callback(
+                            callback_url,
+                            analysis_id,
+                            scan_id,
+                            f"Repository cloned: {repo_url} (branch: {branch})",
+                            raw_output=clone_output,
+                        )
                 except Exception as e:
                     step_results["cloning"] = StepResult(status="failed", error=str(e))
                     logger.error(f"[{scan_id}] Clone failed: {e}")
+                    if callback_url:
+                        await self._send_log_callback(
+                            callback_url,
+                            analysis_id,
+                            scan_id,
+                            f"Clone failed: {e}",
+                            log_level="error",
+                        )
             else:
                 step_results["cloning"] = StepResult(status="skipped", error="No repo URL provided")
 
@@ -116,17 +132,41 @@ class ScanPipeline:
                         callback_url, analysis_id, "STATIC_ANALYSIS", scan_id
                     )
                 try:
-                    sast_findings = self.sast_scanner.run(repo_path)
+                    sast_findings, sast_output = self.sast_scanner.run(repo_path)
                     step_results["sast"] = StepResult(
                         status="success", findings_count=len(sast_findings)
                     )
                     logger.info(f"[{scan_id}] SAST found {len(sast_findings)} issues")
+                    if callback_url:
+                        await self._send_log_callback(
+                            callback_url,
+                            analysis_id,
+                            scan_id,
+                            f"SAST completed: {len(sast_findings)} findings",
+                            raw_output=sast_output,
+                        )
                 except (ScannerNotFoundError, ScannerTimeoutError) as e:
                     step_results["sast"] = StepResult(status="failed", error=str(e))
                     logger.error(f"[{scan_id}] SAST failed: {e}")
+                    if callback_url:
+                        await self._send_log_callback(
+                            callback_url,
+                            analysis_id,
+                            scan_id,
+                            f"SAST failed: {e}",
+                            log_level="error",
+                        )
                 except Exception as e:
                     step_results["sast"] = StepResult(status="failed", error=str(e))
                     logger.error(f"[{scan_id}] SAST failed: {e}")
+                    if callback_url:
+                        await self._send_log_callback(
+                            callback_url,
+                            analysis_id,
+                            scan_id,
+                            f"SAST failed: {e}",
+                            log_level="error",
+                        )
             else:
                 reason = "Clone was skipped or failed"
                 step_results["sast"] = StepResult(status="skipped", error=reason)
@@ -165,7 +205,9 @@ class ScanPipeline:
                     else:
                         try:
                             # Pass network_name=None since we already connected
-                            dast_findings = self.dast_scanner.run(target_url, network_name=None)
+                            dast_findings, dast_output = self.dast_scanner.run(
+                                target_url, network_name=None
+                            )
 
                             # Verify: if 0 findings, check target is still reachable
                             if len(dast_findings) == 0:
@@ -190,12 +232,37 @@ class ScanPipeline:
                                     status="success", findings_count=len(dast_findings)
                                 )
                                 logger.info(f"[{scan_id}] DAST found {len(dast_findings)} issues")
+
+                            if callback_url:
+                                await self._send_log_callback(
+                                    callback_url,
+                                    analysis_id,
+                                    scan_id,
+                                    f"DAST completed: {len(dast_findings)} findings",
+                                    raw_output=dast_output,
+                                )
                         except (ScannerNotFoundError, ScannerTimeoutError) as e:
                             step_results["dast"] = StepResult(status="failed", error=str(e))
                             logger.error(f"[{scan_id}] DAST failed: {e}")
+                            if callback_url:
+                                await self._send_log_callback(
+                                    callback_url,
+                                    analysis_id,
+                                    scan_id,
+                                    f"DAST failed: {e}",
+                                    log_level="error",
+                                )
                         except Exception as e:
                             step_results["dast"] = StepResult(status="failed", error=str(e))
                             logger.error(f"[{scan_id}] DAST failed: {e}")
+                            if callback_url:
+                                await self._send_log_callback(
+                                    callback_url,
+                                    analysis_id,
+                                    scan_id,
+                                    f"DAST failed: {e}",
+                                    log_level="error",
+                                )
 
                 # Disconnect from network after all DAST work
                 if network_connected and network_name:
@@ -249,6 +316,40 @@ class ScanPipeline:
             # Send failure callback
             if callback_url:
                 await self._send_failure_callback(callback_url, analysis_id, str(e), step_results)
+
+    async def _send_log_callback(
+        self,
+        callback_url: str,
+        analysis_id: str,
+        scan_id: str,
+        log_message: str,
+        raw_output: Optional[str] = None,
+        log_level: str = "info",
+    ):
+        """Send log message with optional raw terminal output to callback URL (non-fatal)."""
+        payload = {
+            "analysis_id": analysis_id,
+            "log_message": log_message,
+            "log_level": log_level,
+        }
+        if raw_output:
+            if len(raw_output) > 50_000:
+                raw_output = raw_output[:50_000] + "\n... (truncated)"
+            payload["raw_output"] = raw_output
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                api_key = os.getenv("SCANNER_API_KEY", "")
+                await client.post(
+                    callback_url,
+                    json=payload,
+                    headers={
+                        "Content-Type": "application/json",
+                        "x-api-key": api_key,
+                    },
+                )
+                logger.info(f"[{scan_id}] Log callback sent: {log_message[:80]}")
+        except Exception as e:
+            logger.warning(f"[{scan_id}] Log callback failed (non-fatal): {e}")
 
     async def _send_status_callback(
         self, callback_url: str, analysis_id: str, status: str, scan_id: str

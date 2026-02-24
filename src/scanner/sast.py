@@ -7,7 +7,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 from .exceptions import ScannerNotFoundError, ScannerTimeoutError
 from .models import Finding
@@ -32,12 +32,16 @@ class SemgrepScanner:
     def __init__(self, timeout: int = 300):
         self.timeout = timeout  # seconds
 
-    def clone_repo(self, repo_url: str, branch: str = "main") -> Path:
-        """Clone a git repository to a temporary directory"""
+    def clone_repo(self, repo_url: str, branch: str = "main") -> Tuple[Path, str]:
+        """Clone a git repository to a temporary directory.
+
+        Returns:
+            Tuple of (repo_path, raw_output) where raw_output is git's stderr progress.
+        """
         repo_dir = Path(tempfile.mkdtemp(prefix="killhouse-sast-"))
         logger.info(f"Cloning {repo_url} (branch: {branch}) to {repo_dir}")
         try:
-            subprocess.run(
+            result = subprocess.run(
                 [
                     "git",
                     "clone",
@@ -53,13 +57,17 @@ class SemgrepScanner:
                 timeout=120,
                 check=True,
             )
-            return repo_dir
+            return repo_dir, result.stderr
         except subprocess.CalledProcessError as e:
             shutil.rmtree(repo_dir, ignore_errors=True)
             raise RuntimeError(f"Git clone failed: {e.stderr}") from e
 
-    def run(self, repo_path: Path) -> List[Finding]:
-        """Run Semgrep on a local repository path and return findings"""
+    def run(self, repo_path: Path) -> Tuple[List[Finding], str]:
+        """Run Semgrep on a local repository path and return findings with raw output.
+
+        Returns:
+            Tuple of (findings, raw_output) where raw_output is semgrep's stderr.
+        """
         logger.info(f"Running Semgrep on {repo_path}")
 
         # Copy to temp dir to avoid semgrep's default .semgrepignore
@@ -75,7 +83,6 @@ class SemgrepScanner:
                     "--config",
                     "auto",
                     "--json",
-                    "--quiet",
                     "--no-git-ignore",
                     str(scan_dir),
                 ],
@@ -89,7 +96,8 @@ class SemgrepScanner:
                     f"Semgrep exited with code {result.returncode}: {result.stderr[:500]}"
                 )
 
-            return self._parse_output(result.stdout, scan_dir)
+            findings = self._parse_output(result.stdout, scan_dir)
+            return findings, result.stderr
         except subprocess.TimeoutExpired as e:
             raise ScannerTimeoutError("semgrep", self.timeout) from e
         except FileNotFoundError as e:
@@ -149,9 +157,13 @@ class SemgrepScanner:
         return findings
 
     def scan_repo(self, repo_url: str, branch: str = "main") -> List[Finding]:
-        """Convenience method: clone + scan + cleanup"""
-        repo_path = self.clone_repo(repo_url, branch)
+        """Convenience method: clone + scan + cleanup.
+
+        Returns only findings (not raw output) for backward compatibility.
+        """
+        repo_path, _ = self.clone_repo(repo_url, branch)
         try:
-            return self.run(repo_path)
+            findings, _ = self.run(repo_path)
+            return findings
         finally:
             shutil.rmtree(repo_path, ignore_errors=True)
