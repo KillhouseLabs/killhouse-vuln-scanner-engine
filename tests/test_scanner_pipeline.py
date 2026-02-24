@@ -391,3 +391,202 @@ class TestPipelineSendsLogCallbacks:
         log_calls = mock_log_cb.call_args_list
         error_calls = [c for c in log_calls if "error" in str(c).lower()]
         assert len(error_calls) >= 1
+
+
+class TestSendCallbackReportExclusion:
+    """Tests for _send_callback excluding skipped step reports from payload"""
+
+    def setup_method(self):
+        self.pipeline = ScanPipeline()
+
+    @pytest.mark.asyncio
+    @patch("src.scanner.pipeline.httpx.AsyncClient")
+    async def test_sast_only_scan_excludes_dast_report(self, mock_client_cls):
+        """When DAST step is skipped, penetration_test_report should NOT be in payload"""
+        from src.scanner.aggregator import AggregatedResult
+        from src.scanner.models import Finding
+
+        mock_client = AsyncMock()
+        mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        # Build test data: SAST ran (success), DAST skipped
+        step_results = {
+            "cloning": StepResult(status="success"),
+            "sast": StepResult(status="success", findings_count=2),
+            "building": StepResult(status="skipped"),
+            "dast": StepResult(status="skipped", error="No target URL provided"),
+        }
+
+        sast_finding = Finding(
+            tool="semgrep",
+            type="sast",
+            severity="HIGH",
+            title="SQL Injection",
+            description="Potential SQL injection vulnerability",
+            file_path="/app/user.py",
+            line=42,
+            cwe="CWE-89",
+        )
+
+        result = AggregatedResult(
+            findings=[sast_finding],
+            total=1,
+            critical_count=0,
+            high_count=1,
+            medium_count=0,
+            low_count=0,
+            info_count=0,
+            sast_summary="SAST found SQL injection",
+            dast_summary=None,
+            executive_summary="Security issues detected",
+        )
+
+        await self.pipeline._send_callback(
+            callback_url="http://web/api/analyses/webhook",
+            analysis_id="analysis-123",
+            result=result,
+            scan_id="scan-456",
+            step_results=step_results,
+        )
+
+        mock_client.post.assert_called_once()
+        call_kwargs = mock_client.post.call_args
+        payload = call_kwargs.kwargs.get("json") or call_kwargs[1].get("json")
+
+        # Assert: SAST report included, DAST report excluded
+        assert "static_analysis_report" in payload
+        assert "penetration_test_report" not in payload
+        assert payload["static_analysis_report"]["total"] == 1
+        assert payload["static_analysis_report"]["step_result"]["status"] == "success"
+
+    @pytest.mark.asyncio
+    @patch("src.scanner.pipeline.httpx.AsyncClient")
+    async def test_dast_only_scan_excludes_sast_report(self, mock_client_cls):
+        """When SAST step is skipped, static_analysis_report should NOT be in payload"""
+        from src.scanner.aggregator import AggregatedResult
+        from src.scanner.models import Finding
+
+        mock_client = AsyncMock()
+        mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        # Build test data: SAST skipped, DAST ran (success)
+        step_results = {
+            "cloning": StepResult(status="skipped"),
+            "sast": StepResult(status="skipped", error="Clone was skipped or failed"),
+            "building": StepResult(status="skipped"),
+            "dast": StepResult(status="success", findings_count=3),
+        }
+
+        dast_finding = Finding(
+            tool="nuclei",
+            type="dast",
+            severity="CRITICAL",
+            title="XSS Vulnerability",
+            description="Reflected XSS detected",
+            url="http://target:8080/search?q=<script>",
+            cwe="CWE-79",
+        )
+
+        result = AggregatedResult(
+            findings=[dast_finding],
+            total=1,
+            critical_count=1,
+            high_count=0,
+            medium_count=0,
+            low_count=0,
+            info_count=0,
+            sast_summary=None,
+            dast_summary="DAST found XSS",
+            executive_summary="Critical issues detected",
+        )
+
+        await self.pipeline._send_callback(
+            callback_url="http://web/api/analyses/webhook",
+            analysis_id="analysis-456",
+            result=result,
+            scan_id="scan-789",
+            step_results=step_results,
+        )
+
+        mock_client.post.assert_called_once()
+        call_kwargs = mock_client.post.call_args
+        payload = call_kwargs.kwargs.get("json") or call_kwargs[1].get("json")
+
+        # Assert: DAST report included, SAST report excluded
+        assert "penetration_test_report" in payload
+        assert "static_analysis_report" not in payload
+        assert payload["penetration_test_report"]["total"] == 1
+        assert payload["penetration_test_report"]["step_result"]["status"] == "success"
+
+    @pytest.mark.asyncio
+    @patch("src.scanner.pipeline.httpx.AsyncClient")
+    async def test_both_steps_ran_includes_both_reports(self, mock_client_cls):
+        """When both steps ran, both reports should be in payload"""
+        from src.scanner.aggregator import AggregatedResult
+        from src.scanner.models import Finding
+
+        mock_client = AsyncMock()
+        mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        # Build test data: Both SAST and DAST ran successfully
+        step_results = {
+            "cloning": StepResult(status="success"),
+            "sast": StepResult(status="success", findings_count=2),
+            "building": StepResult(status="skipped"),
+            "dast": StepResult(status="success", findings_count=1),
+        }
+
+        sast_finding = Finding(
+            tool="semgrep",
+            type="sast",
+            severity="HIGH",
+            title="SQL Injection",
+            description="SQL injection",
+            file_path="/app/user.py",
+            line=42,
+        )
+
+        dast_finding = Finding(
+            tool="nuclei",
+            type="dast",
+            severity="MEDIUM",
+            title="Open Redirect",
+            description="Open redirect",
+            url="http://target:8080/redirect",
+        )
+
+        result = AggregatedResult(
+            findings=[sast_finding, dast_finding],
+            total=2,
+            critical_count=0,
+            high_count=1,
+            medium_count=1,
+            low_count=0,
+            info_count=0,
+            sast_summary="SAST summary",
+            dast_summary="DAST summary",
+            executive_summary="Both scans completed",
+        )
+
+        await self.pipeline._send_callback(
+            callback_url="http://web/api/analyses/webhook",
+            analysis_id="analysis-789",
+            result=result,
+            scan_id="scan-101",
+            step_results=step_results,
+        )
+
+        mock_client.post.assert_called_once()
+        call_kwargs = mock_client.post.call_args
+        payload = call_kwargs.kwargs.get("json") or call_kwargs[1].get("json")
+
+        # Assert: Both reports included
+        assert "static_analysis_report" in payload
+        assert "penetration_test_report" in payload
+        assert payload["static_analysis_report"]["total"] == 1
+        assert payload["penetration_test_report"]["total"] == 1
+        assert payload["static_analysis_report"]["step_result"]["status"] == "success"
+        assert payload["penetration_test_report"]["step_result"]["status"] == "success"

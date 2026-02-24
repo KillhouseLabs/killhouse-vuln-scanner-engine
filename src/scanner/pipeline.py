@@ -491,8 +491,6 @@ class ScanPipeline:
         payload = {
             "analysis_id": analysis_id,
             "status": final_status,
-            "static_analysis_report": static_report,
-            "penetration_test_report": pentest_report,
             "executive_summary": result.executive_summary,
             "exploit_session_id": exploit_session_id,
             "vulnerabilities_found": result.total,
@@ -503,6 +501,12 @@ class ScanPipeline:
             "info_count": result.info_count,
             "step_results": {k: v.to_dict() for k, v in step_results.items()},
         }
+
+        # Only include reports for steps that actually ran
+        if step_results["sast"].status != "skipped":
+            payload["static_analysis_report"] = static_report
+        if step_results["dast"].status != "skipped":
+            payload["penetration_test_report"] = pentest_report
 
         logger.info(f"[{scan_id}] Sending callback to {callback_url}")
         try:
