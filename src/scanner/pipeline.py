@@ -12,7 +12,9 @@ import httpx
 from .aggregator import AggregatedResult, ResultAggregator
 from .config import PipelineConfig
 from .dast import NucleiScanner
-from .domain import FinalStatus, LogMessage, PipelinePhase, StepKey, StepResult, StepStatus
+from .domain import LogMessage, PipelinePhase, StepKey, StepResult, StepStatus
+from .exploit_client import ExploitAgentClient
+from .mappers import build_failure_payload, build_result_payload, log_to_webhook_payload
 from .sast import SemgrepScanner
 
 logger = logging.getLogger(__name__)
@@ -27,6 +29,7 @@ class ScanPipeline:
         self.sast_scanner = SemgrepScanner()
         self.dast_scanner = NucleiScanner()
         self.aggregator = ResultAggregator(openai_api_key=os.getenv("OPENAI_API_KEY"))
+        self._exploit_client = ExploitAgentClient(config=CONFIG)
 
     # ── HTTP helpers ───────────────────────────────────────────────
 
@@ -425,7 +428,7 @@ class ScanPipeline:
         payload = {
             "analysis_id": analysis_id,
             "status": status,
-            **log.to_payload(CONFIG.raw_output_max_length),
+            **log_to_webhook_payload(log, CONFIG.raw_output_max_length),
         }
         try:
             await self._post_webhook(callback_url, payload, CONFIG.callback_timeout)
@@ -442,80 +445,9 @@ class ScanPipeline:
         network_name: Optional[str] = None,
     ) -> Optional[str]:
         """Call exploit-agent to start a penetration test session. Returns session_id or None."""
-        exploit_agent_url = os.getenv("EXPLOIT_AGENT_URL")
-        if not exploit_agent_url:
-            logger.info(f"[{scan_id}] EXPLOIT_AGENT_URL not set, skipping exploit verification")
-            return None
-
-        vulnerabilities = self._translate_findings_to_vulnerabilities(result)
-        if not vulnerabilities:
-            return None
-
-        payload = {
-            "analysis_id": analysis_id,
-            "target_url": target_url,
-            "vulnerabilities": vulnerabilities,
-            "max_attempts": CONFIG.exploit_max_attempts,
-        }
-
-        try:
-            async with httpx.AsyncClient(timeout=CONFIG.result_callback_timeout) as client:
-                response = await client.post(
-                    f"{exploit_agent_url}/api/sessions",
-                    json=payload,
-                )
-                if response.status_code == 200:
-                    session_id = response.json().get("session_id")
-                    logger.info(f"[{scan_id}] Exploit session started: {session_id}")
-                    return session_id
-                logger.warning(
-                    f"[{scan_id}] Exploit agent returned {response.status_code}: "
-                    f"{response.text[:200]}"
-                )
-        except Exception as e:
-            logger.error(f"[{scan_id}] Failed to call exploit agent: {e}")
-
-        return None
-
-    def _translate_findings_to_vulnerabilities(self, result: AggregatedResult) -> List[dict]:
-        """Translate aggregated findings into exploit-agent Vulnerability format."""
-        cwe_type_mapping = {
-            "CWE-89": "sql_injection",
-            "CWE-79": "xss",
-            "CWE-78": "command_injection",
-            "CWE-77": "command_injection",
-            "CWE-22": "path_traversal",
-            "CWE-918": "ssrf",
-            "CWE-287": "auth_bypass",
-            "CWE-306": "auth_bypass",
-            "CWE-502": "deserialization",
-            "CWE-611": "xxe",
-            "CWE-94": "rce",
-            "CWE-96": "rce",
-        }
-
-        vulnerabilities = []
-        for finding in result.findings:
-            vuln_type = cwe_type_mapping.get(finding.cwe, "rce") if finding.cwe else "rce"
-            vulnerabilities.append(
-                {
-                    "type": vuln_type,
-                    "location": finding.url or finding.file_path or "/",
-                    "method": "GET",
-                    "analysis_context": {
-                        "source": finding.type,
-                        "tool": finding.tool,
-                        "severity": finding.severity,
-                        "cwe_id": finding.cwe,
-                        "title": finding.title,
-                        "matched_url": finding.url,
-                        "description": finding.description,
-                        "reference": finding.reference,
-                    },
-                }
-            )
-
-        return vulnerabilities
+        return await self._exploit_client.start_session(
+            scan_id, analysis_id, target_url, result, network_name
+        )
 
     async def _send_callback(
         self,
@@ -527,45 +459,7 @@ class ScanPipeline:
         exploit_session_id: Optional[str] = None,
     ):
         """Send scan results to the callback URL"""
-        sast_findings = [f for f in result.findings if f.type == "sast"]
-        dast_findings = [f for f in result.findings if f.type == "dast"]
-
-        static_report = {
-            "tool": "semgrep",
-            "findings": [f.to_dict() for f in sast_findings],
-            "total": len(sast_findings),
-            "summary": result.sast_summary,
-            "step_result": step_results[StepKey.SAST].to_dict(),
-        }
-
-        pentest_report = {
-            "tool": "nuclei",
-            "findings": [f.to_dict() for f in dast_findings],
-            "total": len(dast_findings),
-            "summary": result.dast_summary,
-            "step_result": step_results[StepKey.DAST].to_dict(),
-        }
-
-        final_status = FinalStatus.from_step_results(step_results)
-
-        payload = {
-            "analysis_id": analysis_id,
-            "status": final_status,
-            "executive_summary": result.executive_summary,
-            "exploit_session_id": exploit_session_id,
-            "vulnerabilities_found": result.total,
-            "critical_count": result.critical_count,
-            "high_count": result.high_count,
-            "medium_count": result.medium_count,
-            "low_count": result.low_count,
-            "info_count": result.info_count,
-            "step_results": {k: v.to_dict() for k, v in step_results.items()},
-        }
-
-        if not step_results[StepKey.SAST].is_skipped:
-            payload["static_analysis_report"] = static_report
-        if not step_results[StepKey.DAST].is_skipped:
-            payload["penetration_test_report"] = pentest_report
+        payload = build_result_payload(analysis_id, result, step_results, exploit_session_id)
 
         logger.info(f"[{scan_id}] Sending callback to {callback_url}")
         try:
@@ -591,12 +485,7 @@ class ScanPipeline:
         step_results: Dict[str, StepResult],
     ):
         """Send failure notification to callback URL"""
-        payload = {
-            "analysis_id": analysis_id,
-            "status": FinalStatus.FAILED,
-            "error": error,
-            "step_results": {k: v.to_dict() for k, v in step_results.items()},
-        }
+        payload = build_failure_payload(analysis_id, error, step_results)
         try:
             await self._post_webhook(callback_url, payload, CONFIG.result_callback_timeout)
         except Exception as e:

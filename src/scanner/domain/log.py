@@ -18,7 +18,7 @@ class LogLevel(str, Enum):
 
 @dataclass(frozen=True)
 class LogMessage:
-    """Immutable log callback payload (Value Object).
+    """Immutable log message (Value Object).
 
     Encapsulates message construction and raw_output truncation.
     """
@@ -44,14 +44,3 @@ class LogMessage:
         if len(self.raw_output) <= max_length:
             return self.raw_output
         return self.raw_output[:max_length] + "\n... (truncated)"
-
-    def to_payload(self, max_length: int = DEFAULT_RAW_OUTPUT_MAX_LENGTH) -> dict:
-        """Build webhook callback payload dict."""
-        payload: dict = {
-            "log_message": self.message,
-            "log_level": self.level,
-        }
-        truncated = self.truncated_raw_output(max_length)
-        if truncated:
-            payload["raw_output"] = truncated
-        return payload
