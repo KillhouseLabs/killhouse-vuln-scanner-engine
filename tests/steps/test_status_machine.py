@@ -3,7 +3,7 @@
 import pytest
 from pytest_bdd import given, parsers, scenario, then, when
 
-from src.scanner.pipeline import StepResult
+from src.scanner.domain import FinalStatus, StepResult, StepStatus
 
 
 @scenario(
@@ -34,9 +34,9 @@ def test_sast_failed_completed_with_errors():
 def context():
     return {
         "step_results": {
-            "cloning": StepResult(status="success"),
+            "cloning": StepResult(status=StepStatus.SUCCESS),
             "sast": StepResult(),
-            "building": StepResult(status="skipped"),
+            "building": StepResult(status=StepStatus.SKIPPED),
             "dast": StepResult(),
         }
     }
@@ -44,29 +44,29 @@ def context():
 
 @given("SAST가 성공한다")
 def sast_success(context):
-    context["step_results"]["sast"] = StepResult(status="success", findings_count=3)
+    context["step_results"]["sast"] = StepResult(status=StepStatus.SUCCESS, findings_count=3)
 
 
 @given("DAST가 성공한다")
 def dast_success(context):
-    context["step_results"]["dast"] = StepResult(status="success", findings_count=5)
+    context["step_results"]["dast"] = StepResult(status=StepStatus.SUCCESS, findings_count=5)
 
 
 @given("SAST가 실패한다")
 def sast_failed(context):
-    context["step_results"]["sast"] = StepResult(status="failed", error="semgrep not found")
+    context["step_results"]["sast"] = StepResult(
+        status=StepStatus.FAILED, error="semgrep not found"
+    )
 
 
 @given("DAST가 실패한다")
 def dast_failed(context):
-    context["step_results"]["dast"] = StepResult(status="failed", error="nuclei timeout")
+    context["step_results"]["dast"] = StepResult(status=StepStatus.FAILED, error="nuclei timeout")
 
 
 @when("파이프라인이 완료된다")
 def pipeline_completes(context):
-    step_results = context["step_results"]
-    has_failure = any(sr.status == "failed" for sr in step_results.values())
-    context["final_status"] = "COMPLETED_WITH_ERRORS" if has_failure else "COMPLETED"
+    context["final_status"] = FinalStatus.from_step_results(context["step_results"])
 
 
 @then(parsers.parse('최종 상태는 "{expected_status}"이다'))
