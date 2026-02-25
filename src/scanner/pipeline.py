@@ -3,45 +3,21 @@
 import asyncio
 import logging
 import os
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict, Optional
 
 import httpx
 
 from .aggregator import AggregatedResult, ResultAggregator
-from .constants import (
-    FinalStatus,
-    LogLevel,
-    PipelineConfig,
-    PipelinePhase,
-    StepKey,
-    StepStatus,
-)
+from .config import PipelineConfig
 from .dast import NucleiScanner
+from .domain import FinalStatus, LogLevel, PipelinePhase, StepKey, StepResult, StepStatus
 from .exceptions import ScannerNotFoundError, ScannerTimeoutError
 from .sast import SemgrepScanner
 
 logger = logging.getLogger(__name__)
 
 CONFIG = PipelineConfig()
-
-
-@dataclass
-class StepResult:
-    """Result of a single pipeline step"""
-
-    status: StepStatus = StepStatus.PENDING
-    findings_count: int = 0
-    error: Optional[str] = None
-
-    def to_dict(self) -> dict:
-        result = {"status": self.status}
-        if self.findings_count > 0:
-            result["findings_count"] = self.findings_count
-        if self.error:
-            result["error"] = self.error
-        return result
 
 
 class ScanPipeline:

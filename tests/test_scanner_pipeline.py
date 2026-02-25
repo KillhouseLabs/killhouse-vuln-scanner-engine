@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.scanner.constants import FinalStatus, LogLevel, StepStatus
-from src.scanner.pipeline import ScanPipeline, StepResult
+from src.scanner.domain import FinalStatus, LogLevel, StepResult, StepStatus
+from src.scanner.pipeline import ScanPipeline
 
 
 class TestPipelineStatusDecision:

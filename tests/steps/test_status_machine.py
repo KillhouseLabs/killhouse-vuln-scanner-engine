@@ -3,8 +3,7 @@
 import pytest
 from pytest_bdd import given, parsers, scenario, then, when
 
-from src.scanner.constants import FinalStatus, StepStatus
-from src.scanner.pipeline import StepResult
+from src.scanner.domain import FinalStatus, StepResult, StepStatus
 
 
 @scenario(

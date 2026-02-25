@@ -12,7 +12,7 @@ for mod_name in ("openai", "docker", "podman"):
     if mod_name not in sys.modules:
         sys.modules[mod_name] = MagicMock()
 
-from src.scanner.constants import LogLevel, PipelinePhase  # noqa: E402
+from src.scanner.domain import LogLevel, PipelinePhase  # noqa: E402
 from src.scanner.pipeline import ScanPipeline  # noqa: E402
 
 
