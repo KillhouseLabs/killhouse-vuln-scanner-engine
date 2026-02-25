@@ -62,9 +62,7 @@ def sast_failed(context):
 
 @given("DAST가 실패한다")
 def dast_failed(context):
-    context["step_results"]["dast"] = StepResult(
-        status=StepStatus.FAILED, error="nuclei timeout"
-    )
+    context["step_results"]["dast"] = StepResult(status=StepStatus.FAILED, error="nuclei timeout")
 
 
 @when("파이프라인이 완료된다")

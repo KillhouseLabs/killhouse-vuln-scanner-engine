@@ -215,9 +215,7 @@ class TestPipelineSendsLogCallbacks:
     @patch.object(ScanPipeline, "_send_status_callback", new_callable=AsyncMock)
     @patch.object(ScanPipeline, "_send_callback", new_callable=AsyncMock)
     @patch.object(ScanPipeline, "_wait_for_target", new_callable=AsyncMock)
-    async def test_sends_clone_log_callback(
-        self, mock_wait, mock_send_cb, mock_status_cb
-    ):
+    async def test_sends_clone_log_callback(self, mock_wait, mock_send_cb, mock_status_cb):
         """Pipeline sends log callback with clone output after cloning"""
         clone_output = "Cloning into '/tmp/repo'...\nReceiving objects: 100%\n"
         self.pipeline.sast_scanner = MagicMock()
@@ -266,9 +264,7 @@ class TestPipelineSendsLogCallbacks:
     @patch.object(ScanPipeline, "_send_status_callback", new_callable=AsyncMock)
     @patch.object(ScanPipeline, "_send_callback", new_callable=AsyncMock)
     @patch.object(ScanPipeline, "_wait_for_target", new_callable=AsyncMock)
-    async def test_sends_sast_log_callback(
-        self, mock_wait, mock_send_cb, mock_status_cb
-    ):
+    async def test_sends_sast_log_callback(self, mock_wait, mock_send_cb, mock_status_cb):
         """Pipeline sends log callback with SAST output after scanning"""
         sast_output = "Running 500 rules...\nFinished in 2.5s\n"
         self.pipeline.sast_scanner = MagicMock()
@@ -310,9 +306,7 @@ class TestPipelineSendsLogCallbacks:
     @patch.object(ScanPipeline, "_send_status_callback", new_callable=AsyncMock)
     @patch.object(ScanPipeline, "_send_callback", new_callable=AsyncMock)
     @patch.object(ScanPipeline, "_wait_for_target", new_callable=AsyncMock)
-    async def test_sends_dast_log_callback(
-        self, mock_wait, mock_send_cb, mock_status_cb
-    ):
+    async def test_sends_dast_log_callback(self, mock_wait, mock_send_cb, mock_status_cb):
         """Pipeline sends log callback with DAST output after scanning"""
         dast_output = "[INF] Templates loaded: 500\n[INF] Found 2 results\n"
         self.pipeline.sast_scanner = MagicMock()
@@ -357,9 +351,7 @@ class TestPipelineSendsLogCallbacks:
     @patch.object(ScanPipeline, "_send_status_callback", new_callable=AsyncMock)
     @patch.object(ScanPipeline, "_send_callback", new_callable=AsyncMock)
     @patch.object(ScanPipeline, "_wait_for_target", new_callable=AsyncMock)
-    async def test_sends_error_log_on_clone_failure(
-        self, mock_wait, mock_send_cb, mock_status_cb
-    ):
+    async def test_sends_error_log_on_clone_failure(self, mock_wait, mock_send_cb, mock_status_cb):
         """Pipeline sends error log callback when clone fails"""
         self.pipeline.sast_scanner = MagicMock()
         self.pipeline.sast_scanner.clone_repo.side_effect = RuntimeError("auth failed")

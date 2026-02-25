@@ -97,9 +97,7 @@ async def _call_and_capture(callback_url, status, log_message, log_level=None):
         if log_level is not None:
             kwargs["log_level"] = log_level
 
-        await pipeline._send_status_callback(
-            callback_url, "analysis-1", status, "scan-1", **kwargs
-        )
+        await pipeline._send_status_callback(callback_url, "analysis-1", status, "scan-1", **kwargs)
 
     return mock_client.post.call_args.kwargs.get("json")
 
