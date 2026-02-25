@@ -66,11 +66,7 @@ def dast_failed(context):
 
 @when("파이프라인이 완료된다")
 def pipeline_completes(context):
-    step_results = context["step_results"]
-    has_failure = any(sr.status == StepStatus.FAILED for sr in step_results.values())
-    context["final_status"] = (
-        FinalStatus.COMPLETED_WITH_ERRORS if has_failure else FinalStatus.COMPLETED
-    )
+    context["final_status"] = FinalStatus.from_step_results(context["step_results"])
 
 
 @then(parsers.parse('최종 상태는 "{expected_status}"이다'))

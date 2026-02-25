@@ -11,7 +11,7 @@ import httpx
 from .aggregator import AggregatedResult, ResultAggregator
 from .config import PipelineConfig
 from .dast import NucleiScanner
-from .domain import FinalStatus, LogLevel, PipelinePhase, StepKey, StepResult, StepStatus
+from .domain import FinalStatus, LogMessage, PipelinePhase, StepKey, StepResult, StepStatus
 from .exceptions import ScannerNotFoundError, ScannerTimeoutError
 from .sast import SemgrepScanner
 
@@ -89,7 +89,7 @@ class ScanPipeline:
                     analysis_id,
                     PipelinePhase.CLONING,
                     scan_id,
-                    log_message="Repository cloning started",
+                    log=LogMessage.info("Repository cloning started"),
                 )
 
             if local_path:
@@ -105,8 +105,10 @@ class ScanPipeline:
                             analysis_id,
                             PipelinePhase.CLONING,
                             scan_id,
-                            log_message=f"Repository cloned: {repo_url} (branch: {branch})",
-                            raw_output=clone_output,
+                            log=LogMessage.info(
+                                f"Repository cloned: {repo_url} (branch: {branch})",
+                                raw_output=clone_output,
+                            ),
                         )
                 except Exception as e:
                     step_results[StepKey.CLONING] = StepResult(
@@ -119,8 +121,7 @@ class ScanPipeline:
                             analysis_id,
                             PipelinePhase.CLONING,
                             scan_id,
-                            log_message=f"Clone failed: {e}",
-                            log_level=LogLevel.ERROR,
+                            log=LogMessage.error(f"Clone failed: {e}"),
                         )
             else:
                 step_results[StepKey.CLONING] = StepResult(
@@ -128,14 +129,14 @@ class ScanPipeline:
                 )
 
             # Step 2: SAST scan
-            if repo_path and step_results[StepKey.CLONING].status == StepStatus.SUCCESS:
+            if repo_path and step_results[StepKey.CLONING].is_success:
                 if callback_url:
                     await self._send_status_callback(
                         callback_url,
                         analysis_id,
                         PipelinePhase.STATIC_ANALYSIS,
                         scan_id,
-                        log_message="Starting static analysis",
+                        log=LogMessage.info("Starting static analysis"),
                     )
                 try:
                     sast_findings, sast_output = self.sast_scanner.run(repo_path)
@@ -149,8 +150,10 @@ class ScanPipeline:
                             analysis_id,
                             PipelinePhase.STATIC_ANALYSIS,
                             scan_id,
-                            log_message=f"SAST completed: {len(sast_findings)} findings",
-                            raw_output=sast_output,
+                            log=LogMessage.info(
+                                f"SAST completed: {len(sast_findings)} findings",
+                                raw_output=sast_output,
+                            ),
                         )
                 except (ScannerNotFoundError, ScannerTimeoutError) as e:
                     step_results[StepKey.SAST] = StepResult(status=StepStatus.FAILED, error=str(e))
@@ -161,8 +164,7 @@ class ScanPipeline:
                             analysis_id,
                             PipelinePhase.STATIC_ANALYSIS,
                             scan_id,
-                            log_message=f"SAST failed: {e}",
-                            log_level=LogLevel.ERROR,
+                            log=LogMessage.error(f"SAST failed: {e}"),
                         )
                 except Exception as e:
                     step_results[StepKey.SAST] = StepResult(status=StepStatus.FAILED, error=str(e))
@@ -173,8 +175,7 @@ class ScanPipeline:
                             analysis_id,
                             PipelinePhase.STATIC_ANALYSIS,
                             scan_id,
-                            log_message=f"SAST failed: {e}",
-                            log_level=LogLevel.ERROR,
+                            log=LogMessage.error(f"SAST failed: {e}"),
                         )
             else:
                 reason = "Clone was skipped or failed"
@@ -187,7 +188,7 @@ class ScanPipeline:
                     analysis_id,
                     PipelinePhase.BUILDING,
                     scan_id,
-                    log_message="Building sandbox environment",
+                    log=LogMessage.info("Building sandbox environment"),
                 )
 
             # Step 4: DAST scan
@@ -198,7 +199,7 @@ class ScanPipeline:
                         analysis_id,
                         PipelinePhase.PENETRATION_TEST,
                         scan_id,
-                        log_message="Starting penetration test",
+                        log=LogMessage.info("Starting penetration test"),
                     )
 
                 # Join target network BEFORE healthcheck so internal hostnames resolve
@@ -262,8 +263,10 @@ class ScanPipeline:
                                     analysis_id,
                                     PipelinePhase.PENETRATION_TEST,
                                     scan_id,
-                                    log_message=(f"DAST completed: {len(dast_findings)} findings"),
-                                    raw_output=dast_output,
+                                    log=LogMessage.info(
+                                        f"DAST completed: {len(dast_findings)} findings",
+                                        raw_output=dast_output,
+                                    ),
                                 )
                         except (ScannerNotFoundError, ScannerTimeoutError) as e:
                             step_results[StepKey.DAST] = StepResult(
@@ -276,8 +279,7 @@ class ScanPipeline:
                                     analysis_id,
                                     PipelinePhase.PENETRATION_TEST,
                                     scan_id,
-                                    log_message=f"DAST failed: {e}",
-                                    log_level=LogLevel.ERROR,
+                                    log=LogMessage.error(f"DAST failed: {e}"),
                                 )
                         except Exception as e:
                             step_results[StepKey.DAST] = StepResult(
@@ -290,8 +292,7 @@ class ScanPipeline:
                                     analysis_id,
                                     PipelinePhase.PENETRATION_TEST,
                                     scan_id,
-                                    log_message=f"DAST failed: {e}",
-                                    log_level=LogLevel.ERROR,
+                                    log=LogMessage.error(f"DAST failed: {e}"),
                                 )
 
                 # Disconnect from network after all DAST work
@@ -326,7 +327,7 @@ class ScanPipeline:
                         analysis_id,
                         PipelinePhase.EXPLOIT_VERIFICATION,
                         scan_id,
-                        log_message="Starting exploit verification",
+                        log=LogMessage.info("Starting exploit verification"),
                     )
                 exploit_session_id = await self._call_exploit_agent(
                     scan_id, analysis_id, target_url, result, network_name
@@ -364,21 +365,14 @@ class ScanPipeline:
         analysis_id: str,
         status: PipelinePhase,
         scan_id: str,
-        log_message: str,
-        log_level: LogLevel = LogLevel.INFO,
-        raw_output: Optional[str] = None,
+        log: LogMessage,
     ):
         """Send status update with log message to callback URL (non-fatal on failure)."""
         payload = {
             "analysis_id": analysis_id,
             "status": status,
-            "log_message": log_message,
-            "log_level": log_level,
+            **log.to_payload(CONFIG.raw_output_max_length),
         }
-        if raw_output:
-            if len(raw_output) > CONFIG.raw_output_max_length:
-                raw_output = raw_output[: CONFIG.raw_output_max_length] + "\n... (truncated)"
-            payload["raw_output"] = raw_output
         try:
             async with httpx.AsyncClient(timeout=CONFIG.callback_timeout) as client:
                 api_key = os.getenv("SCANNER_API_KEY", "")
@@ -508,8 +502,7 @@ class ScanPipeline:
             "step_result": step_results[StepKey.DAST].to_dict(),
         }
 
-        has_failure = any(sr.status == StepStatus.FAILED for sr in step_results.values())
-        final_status = FinalStatus.COMPLETED_WITH_ERRORS if has_failure else FinalStatus.COMPLETED
+        final_status = FinalStatus.from_step_results(step_results)
 
         payload = {
             "analysis_id": analysis_id,
@@ -526,9 +519,9 @@ class ScanPipeline:
         }
 
         # Only include reports for steps that actually ran
-        if step_results[StepKey.SAST].status != StepStatus.SKIPPED:
+        if not step_results[StepKey.SAST].is_skipped:
             payload["static_analysis_report"] = static_report
-        if step_results[StepKey.DAST].status != StepStatus.SKIPPED:
+        if not step_results[StepKey.DAST].is_skipped:
             payload["penetration_test_report"] = pentest_report
 
         logger.info(f"[{scan_id}] Sending callback to {callback_url}")

@@ -12,7 +12,7 @@ for mod_name in ("openai", "docker", "podman"):
     if mod_name not in sys.modules:
         sys.modules[mod_name] = MagicMock()
 
-from src.scanner.domain import LogLevel, PipelinePhase  # noqa: E402
+from src.scanner.domain import LogLevel, LogMessage, PipelinePhase  # noqa: E402
 from src.scanner.pipeline import ScanPipeline  # noqa: E402
 
 
@@ -93,11 +93,10 @@ async def _call_and_capture(callback_url, status, log_message, log_level=None):
         mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
         mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
-        kwargs = {"log_message": log_message}
-        if log_level is not None:
-            kwargs["log_level"] = log_level
+        level = log_level if log_level is not None else LogLevel.INFO
+        log = LogMessage(message=log_message, level=level)
 
-        await pipeline._send_status_callback(callback_url, "analysis-1", status, "scan-1", **kwargs)
+        await pipeline._send_status_callback(callback_url, "analysis-1", status, "scan-1", log=log)
 
     return mock_client.post.call_args.kwargs.get("json")
 

@@ -31,6 +31,18 @@ class StepResult:
     findings_count: int = 0
     error: Optional[str] = None
 
+    @property
+    def is_failed(self) -> bool:
+        return self.status == StepStatus.FAILED
+
+    @property
+    def is_skipped(self) -> bool:
+        return self.status == StepStatus.SKIPPED
+
+    @property
+    def is_success(self) -> bool:
+        return self.status == StepStatus.SUCCESS
+
     def to_dict(self) -> dict:
         result = {"status": self.status}
         if self.findings_count > 0:

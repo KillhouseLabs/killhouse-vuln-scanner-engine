@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.scanner.domain import FinalStatus, LogLevel, StepResult, StepStatus
+from src.scanner.domain import FinalStatus, LogMessage, StepResult, StepStatus
 from src.scanner.pipeline import ScanPipeline
 
 
@@ -12,9 +12,8 @@ class TestPipelineStatusDecision:
     """Tests for determining final pipeline status based on step results"""
 
     def _determine_status(self, step_results):
-        """Replicate the status decision logic from _send_callback"""
-        has_failure = any(sr.status == StepStatus.FAILED for sr in step_results.values())
-        return FinalStatus.COMPLETED_WITH_ERRORS if has_failure else FinalStatus.COMPLETED
+        """Use domain model to determine final pipeline status"""
+        return FinalStatus.from_step_results(step_results)
 
     def test_all_success_returns_completed(self):
         """All steps successful -> COMPLETED"""
@@ -86,8 +85,10 @@ class TestSendStatusCallback:
             analysis_id="analysis-123",
             status="STATIC_ANALYSIS",
             scan_id="scan-456",
-            log_message="SAST completed: 5 findings",
-            raw_output="Running 500 rules...\nFinished in 2.5s\n",
+            log=LogMessage.info(
+                "SAST completed: 5 findings",
+                raw_output="Running 500 rules...\nFinished in 2.5s\n",
+            ),
         )
 
         mock_client.post.assert_called_once()
@@ -110,7 +111,7 @@ class TestSendStatusCallback:
             analysis_id="analysis-123",
             status="CLONING",
             scan_id="scan-456",
-            log_message="Waiting for target...",
+            log=LogMessage.info("Waiting for target..."),
         )
 
         payload = mock_client.post.call_args.kwargs.get("json") or mock_client.post.call_args[
@@ -134,8 +135,7 @@ class TestSendStatusCallback:
             analysis_id="analysis-123",
             status="STATIC_ANALYSIS",
             scan_id="scan-456",
-            log_message="Large output",
-            raw_output=large_output,
+            log=LogMessage.info("Large output", raw_output=large_output),
         )
 
         payload = mock_client.post.call_args.kwargs.get("json") or mock_client.post.call_args[
@@ -157,8 +157,7 @@ class TestSendStatusCallback:
             analysis_id="analysis-123",
             status="CLONING",
             scan_id="scan-456",
-            log_message="Clone failed: auth error",
-            log_level=LogLevel.ERROR,
+            log=LogMessage.error("Clone failed: auth error"),
         )
 
         payload = mock_client.post.call_args.kwargs.get("json") or mock_client.post.call_args[
@@ -181,7 +180,7 @@ class TestSendStatusCallback:
             analysis_id="analysis-123",
             status="CLONING",
             scan_id="scan-456",
-            log_message="test",
+            log=LogMessage.info("test"),
         )
 
     @pytest.mark.asyncio
@@ -197,7 +196,7 @@ class TestSendStatusCallback:
             analysis_id="analysis-123",
             status="CLONING",
             scan_id="scan-456",
-            log_message="test",
+            log=LogMessage.info("test"),
         )
 
         call_kwargs = mock_client.post.call_args
